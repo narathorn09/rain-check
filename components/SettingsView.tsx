@@ -19,7 +19,6 @@ import { MorningTimeEditor, PlacePicker, ProfileEditor, Stepper, SwitchRow } fro
 // Fixed sentence, so after the first listen it plays from the cache without a new request.
 const VOLUME_SAMPLE = "เสียงน้องฝนดังประมาณนี้ค่ะ ฟังชัดไหมคะ";
 import { BackIcon, BellIcon, ChevronIcon, PinIcon, SpeakerIcon, UmbrellaIcon } from "./Icons";
-import { SoundTest } from "./SoundTest";
 import { Mascot } from "./Mascot";
 
 type Perm = "granted" | "denied" | "default" | "unsupported";
@@ -36,7 +35,6 @@ export function SettingsView({
   const [perm, setPerm] = useState<Perm>("default");
   const [changing, setChanging] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
-  const [testingSound, setTestingSound] = useState(false);
   const [note, setNote] = useState("");
   const [swVersion, setSwVersion] = useState("");
   const [receipt, setReceipt] = useState<{ count: number; at: number; error?: string } | null>(null);
@@ -269,23 +267,6 @@ export function SettingsView({
             ใช้กับทั้งตอนกดฟังคำตอบและตอนโทรคุย ถ้ายังเบา กดปุ่มเพิ่มเสียงข้างเครื่องด้วยค่ะ
           </p>
         </div>
-        <button type="button" className="list-row" onClick={() => setTestingSound((v) => !v)} aria-expanded={testingSound}>
-          <span className="lead">
-            <SpeakerIcon />
-          </span>
-          <span className="row-main">
-            <span className="row-title" style={{ display: "block" }}>ทดสอบเสียง</span>
-            <span className="row-sub" style={{ display: "block" }}>ใช้หาว่าเสียงแตกเกิดจากตรงไหน</span>
-          </span>
-          <span className="trail">
-            {testingSound ? "ปิด" : "เปิด"} <ChevronIcon />
-          </span>
-        </button>
-        {testingSound && (
-          <div className="list-row block">
-            <SoundTest />
-          </div>
-        )}
       </div>
 
       {note && (
