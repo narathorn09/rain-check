@@ -1,0 +1,27 @@
+import type { Metadata, Viewport } from "next";
+import { Noto_Sans_Thai } from "next/font/google";
+import "./globals.css";
+
+const font = Noto_Sans_Thai({ subsets: ["thai", "latin"], weight: ["400", "600", "700"], display: "swap" });
+
+export const metadata: Metadata = {
+  title: "เช็คฝน",
+  description: "ดูว่าฝนจะตกตอนไหน ก่อนออกไปขายของ",
+  applicationName: "เช็คฝน",
+  appleWebApp: { capable: true, title: "เช็คฝน", statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0b5cad",
+  width: "device-width",
+  initialScale: 1,
+  colorScheme: "light",
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="th" className={font.className}>
+      <body>{children}</body>
+    </html>
+  );
+}
