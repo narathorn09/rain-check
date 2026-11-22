@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { geoAlreadyGranted, getPosition, placeName } from "@/lib/client/geo";
 import { registerWorker, syncDevice } from "@/lib/client/push";
-import { useSettings } from "@/lib/client/settings";
+import { setVolume } from "@/lib/client/pcmPlayer";
+import { VOLUME_LEVELS, useSettings } from "@/lib/client/settings";
 import type { Place } from "@/lib/types";
 import { Avatar } from "./Avatar";
 import { Mascot } from "./Mascot";
@@ -35,6 +36,10 @@ export function App() {
   useEffect(() => {
     registerWorker();
   }, []);
+
+  useEffect(() => {
+    if (settings) setVolume(VOLUME_LEVELS[settings.volume]?.gain ?? 1);
+  }, [settings?.volume]);
 
   // Re-sync with the server on every launch so a rotated subscription is not lost.
   useEffect(() => {

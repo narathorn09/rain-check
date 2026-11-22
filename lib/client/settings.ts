@@ -11,7 +11,20 @@ export interface Settings extends Profile {
   morningMinutes: number;
   alert: boolean;
   setupDone: boolean;
+  /** Index into VOLUME_LEVELS. */
+  volume: number;
 }
+
+/** Speech volume steps; the gain feeds the playback limiter, so louder never clips. */
+export const VOLUME_LEVELS = [
+  { label: "เบา", gain: 0.7 },
+  { label: "ปกติ", gain: 1 },
+  { label: "ดัง", gain: 1.8 },
+  { label: "ดังมาก", gain: 2.8 },
+  { label: "ดังที่สุด", gain: 4 },
+];
+// "ดัง": phone speakers made the recorded level hard to hear for older users.
+const DEFAULT_VOLUME = 2;
 
 const KEY = "rain-check:settings:v1";
 
@@ -23,6 +36,7 @@ function fresh(): Settings {
     morningMinutes: 5 * 60 + 30,
     alert: true,
     setupDone: false,
+    volume: DEFAULT_VOLUME,
     callName: "",
     routine: "",
   };
@@ -44,6 +58,9 @@ function load(): Settings {
         // Phones set up before profiles existed belong to the original user, a market seller.
         callName: saved.callName ?? "คุณแม่",
         routine: saved.routine ?? "ขายของกลางแจ้ง",
+        volume: Number.isInteger(saved.volume)
+          ? Math.min(VOLUME_LEVELS.length - 1, Math.max(0, saved.volume as number))
+          : DEFAULT_VOLUME,
       };
     }
   } catch {

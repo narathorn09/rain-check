@@ -1,6 +1,7 @@
 "use client";
 
 import { Declicker } from "../declick";
+import { Limiter } from "../limiter";
 
 // Plays streamed 16-bit mono PCM through one continuous AudioWorklet stream.
 //
@@ -15,9 +16,11 @@ export const STREAM_RATE = 24000;
 // Runs on the audio thread. Holds a queue of chunks and plays them as one stream, resampling
 // from the input rate to the device rate with linear interpolation.
 const WORKLET = `
+const Limiter = ${Limiter.toString()};
 class PcmStream extends AudioWorkletProcessor {
   constructor(options) {
     super();
+    this.limiter = new Limiter(sampleRate, options.processorOptions.volume);
     this.step = options.processorOptions.inRate / sampleRate;
     this.prebuffer = Math.round(options.processorOptions.inRate * options.processorOptions.prebufferSeconds);
     this.rampLen = Math.max(1, Math.round(sampleRate * 0.006));
@@ -27,6 +30,7 @@ class PcmStream extends AudioWorkletProcessor {
       if (m.type === "push") { this.q.push(m.samples); this.avail += m.samples.length; }
       else if (m.type === "end") { this.draining = true; }
       else if (m.type === "clear") { this.reset(); }
+      else if (m.type === "volume") { this.limiter.gain = m.value; }
     };
   }
   reset() {
@@ -59,13 +63,13 @@ class PcmStream extends AudioWorkletProcessor {
           this.buffering = false; this.rampIn = this.rampLen;
         } else {
           // Silence, ramping the last value down so a stall never clicks.
-          for (; i < out.length; i++) { this.last *= 0.97; out[i] = this.last; }
+          for (; i < out.length; i++) { this.last *= 0.97; out[i] = this.limiter.process(this.last); }
           break;
         }
       }
       let v = this.a + (this.b - this.a) * this.t;
       if (this.rampIn > 0) { v *= 1 - this.rampIn / this.rampLen; this.rampIn--; }
-      out[i++] = v;
+      out[i++] = this.limiter.process(v);
       this.last = v;
       this.t += this.step;
       while (this.t >= 1) {
@@ -89,16 +93,14 @@ registerProcessor("pcm-stream", PcmStream);
 let ctx: AudioContext | null = null;
 let input: AudioNode | null = null;
 let moduleReady: Promise<void> | null = null;
-let boost: GainNode | null = null;
-
-/**
- * Sets extra loudness (1 = normal). Calls need it: with the phone's echo cancellation off,
- * Android plays the call through the quieter media path instead of its call path.
- */
-export function setBoost(level: number): void {
-  if (boost && ctx) boost.gain.setTargetAtTime(level, ctx.currentTime, 0.05);
-}
+let volume = 1;
 const live = new Set<PcmTimeline>();
+
+/** Sets the speech volume (1 = as recorded; higher is louder, peaks held by the limiter). */
+export function setVolume(gain: number): void {
+  volume = gain;
+  for (const t of live) t.setVolume(gain);
+}
 
 /**
  * Returns the shared AudioContext, creating or resuming it. Call this during a tap:
@@ -112,22 +114,12 @@ export function primeAudio(): AudioContext | null {
     ctx = new AudioContext({ latencyHint: "playback" });
     // Measured TTS audio swings almost full scale between adjacent samples on hissy
     // consonants; small phone speakers render that as crackle. Trim the top end (it adds
-    // nothing to intelligibility) and catch peaks before they reach the speaker.
+    // nothing to intelligibility). Loudness and peak control happen in the worklet (Limiter).
     const lowpass = ctx.createBiquadFilter();
     lowpass.type = "lowpass";
     lowpass.frequency.value = 7500;
     lowpass.Q.value = 0.7;
-    const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -16;
-    comp.knee.value = 12;
-    comp.ratio.value = 4;
-    comp.attack.value = 0.003;
-    comp.release.value = 0.2;
-    const gain = ctx.createGain();
-    gain.gain.value = 0.85;
-    // Extra level ahead of the compressor, so the compressor (not hard clipping) catches peaks.
-    boost = ctx.createGain();
-    lowpass.connect(boost).connect(comp).connect(gain).connect(ctx.destination);
+    lowpass.connect(ctx.destination);
     input = lowpass;
     const url = URL.createObjectURL(new Blob([WORKLET], { type: "application/javascript" }));
     moduleReady = ctx.audioWorklet.addModule(url).finally(() => URL.revokeObjectURL(url));
@@ -203,7 +195,7 @@ export class PcmTimeline {
         const node = new AudioWorkletNode(audio, "pcm-stream", {
           numberOfInputs: 0,
           outputChannelCount: [1],
-          processorOptions: { inRate: this.rate, prebufferSeconds: PREBUFFER_SECONDS },
+          processorOptions: { inRate: this.rate, prebufferSeconds: PREBUFFER_SECONDS, volume },
         });
         node.port.onmessage = (e) => {
           if (e.data?.type === "drained") this.fireDone();
@@ -216,6 +208,10 @@ export class PcmTimeline {
         if (this.ended) node.port.postMessage({ type: "end" });
       })
       .catch(() => this.close());
+  }
+
+  setVolume(gain: number) {
+    this.node?.port.postMessage({ type: "volume", value: gain });
   }
 
   get hasAudio(): boolean {
