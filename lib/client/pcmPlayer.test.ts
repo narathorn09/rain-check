@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { pcm16ToFloat } from "./pcmPlayer";
+import { fade, pcm16ToFloat } from "./pcmPlayer";
+
+describe("fade", () => {
+  it("ramps the start up from silence", () => {
+    const s = new Float32Array([1, 1, 1, 1, 1, 1]);
+    fade(s, 4, "in");
+    expect(Array.from(s)).toEqual([0, 0.25, 0.5, 0.75, 1, 1]);
+  });
+
+  it("ramps the end down to silence", () => {
+    const s = new Float32Array([1, 1, 1, 1, 1, 1]);
+    fade(s, 4, "out");
+    expect(Array.from(s)).toEqual([1, 1, 0.75, 0.5, 0.25, 0]);
+  });
+
+  it("copes with blocks shorter than the fade", () => {
+    const s = new Float32Array([1, 1]);
+    fade(s, 10, "in");
+    expect(Array.from(s)).toEqual([0, 0.5]);
+  });
+});
 
 describe("pcm16ToFloat", () => {
   it("reads little-endian signed 16-bit samples", () => {

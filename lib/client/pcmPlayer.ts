@@ -2,16 +2,33 @@
 
 // Plays a stream of 16-bit little-endian mono PCM as it downloads, using Web Audio.
 
+/** Rate of the TTS stream; the audio context runs at the same rate (see primeAudio). */
+export const STREAM_RATE = 24000;
+
 let ctx: AudioContext | null = null;
+let master: GainNode | null = null;
 let active: AudioBufferSourceNode[] = [];
 
 /**
  * Returns the shared AudioContext, creating or resuming it. Call this during a tap:
  * browsers only let audio start after the user has interacted with the page.
+ *
+ * The context runs at the stream's own rate. With the default 48 kHz context, every block
+ * was resampled separately and each seam clicked, which sounded like constant crackling.
  */
 export function primeAudio(): AudioContext | null {
   if (typeof window === "undefined" || !("AudioContext" in window)) return null;
-  ctx ??= new AudioContext();
+  if (!ctx) {
+    try {
+      ctx = new AudioContext({ sampleRate: STREAM_RATE });
+    } catch {
+      ctx = new AudioContext();
+    }
+    master = ctx.createGain();
+    // A little headroom for small phone speakers.
+    master.gain.value = 0.9;
+    master.connect(ctx.destination);
+  }
   if (ctx.state === "suspended") ctx.resume().catch(() => {});
   return ctx;
 }
@@ -35,8 +52,20 @@ export function pcm16ToFloat(bytes: Uint8Array): Float32Array {
   return out;
 }
 
-// Small blocks start sound sooner; too small and scheduling gaps become audible.
-const MIN_BLOCK_SECONDS = 0.25;
+/** Ramps the first or last `n` samples so a block cannot start or stop with a jump (a pop). */
+export function fade(samples: Float32Array, n: number, where: "in" | "out"): void {
+  const len = Math.min(n, samples.length);
+  for (let i = 0; i < len; i++) {
+    const k = i / len;
+    if (where === "in") samples[i] *= k;
+    else samples[samples.length - 1 - i] *= k;
+  }
+}
+
+// The first block waits a little longer so playback does not run dry while more downloads.
+const FIRST_BLOCK_SECONDS = 0.5;
+const BLOCK_SECONDS = 0.25;
+const FADE_SECONDS = 0.008;
 
 /**
  * Reads `body`, schedules each block to play right after the previous one, and returns all
@@ -50,7 +79,9 @@ export async function playPcmStream(
   onEnd: () => void,
 ): Promise<Uint8Array> {
   const audio = primeAudio();
-  if (!audio) throw new Error("Web Audio unavailable");
+  if (!audio || !master) throw new Error("Web Audio unavailable");
+  const out = master;
+  const fadeLen = Math.round(rate * FADE_SECONDS);
 
   const reader = body.getReader();
   const parts: Uint8Array[] = [];
@@ -61,7 +92,7 @@ export async function playPcmStream(
   let scheduled = 0;
   let last: AudioBufferSourceNode | null = null;
 
-  const flush = () => {
+  const flush = (final: boolean) => {
     if (queuedLen === 0) return;
     const samples = new Float32Array(queuedLen);
     let o = 0;
@@ -71,13 +102,20 @@ export async function playPcmStream(
     }
     queued = [];
     queuedLen = 0;
-    // The context resamples 24 kHz buffers to its own rate automatically.
+
+    const earliest = audio.currentTime + 0.1;
+    // A gap means playback ran dry (or this is the first block): fade in instead of popping.
+    const gap = scheduled === 0 || earliest > nextAt + 0.002;
+    if (gap) fade(samples, fadeLen, "in");
+    if (final) fade(samples, fadeLen, "out");
+
     const buf = audio.createBuffer(1, samples.length, rate);
     buf.copyToChannel(samples, 0);
     const src = audio.createBufferSource();
     src.buffer = buf;
-    src.connect(audio.destination);
-    const startAt = Math.max(audio.currentTime + 0.05, nextAt);
+    src.connect(out);
+    // Back-to-back blocks start exactly where the previous one ends, sample for sample.
+    const startAt = gap ? Math.max(earliest, nextAt) : nextAt;
     src.start(startAt);
     nextAt = startAt + buf.duration;
     active.push(src);
@@ -113,13 +151,14 @@ export async function playPcmStream(
       const f = pcm16ToFloat(bytes);
       queued.push(f);
       queuedLen += f.length;
-      if (queuedLen >= rate * MIN_BLOCK_SECONDS) flush();
+      const target = scheduled === 0 ? FIRST_BLOCK_SECONDS : BLOCK_SECONDS;
+      if (queuedLen >= rate * target) flush(false);
     }
   } catch (err) {
     if (scheduled === 0 && queuedLen === 0) throw err;
     // Network dropped mid-way: play what arrived.
   }
-  flush();
+  flush(true);
   if (scheduled === 0) throw new Error("no audio received");
 
   // A very short clip may already have finished before the download loop returned.
