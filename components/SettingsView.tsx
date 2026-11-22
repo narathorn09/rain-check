@@ -31,9 +31,28 @@ export function SettingsView({
   const [changing, setChanging] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [note, setNote] = useState("");
+  const [swVersion, setSwVersion] = useState("");
+  const [receipt, setReceipt] = useState<{ count: number; at: number; error?: string } | null>(null);
 
   useEffect(() => {
     setPerm(pushSupported() ? Notification.permission : "unsupported");
+  }, []);
+
+  // Receipts from the service worker prove whether a push reached this phone, which tells
+  // "not delivered" apart from "delivered but shown silently".
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const onMessage = (e: MessageEvent) => {
+      const m = e.data as { source?: string; type?: string; version?: string; at?: number; error?: string };
+      if (m?.source !== "rain-check-sw") return;
+      if (m.version) setSwVersion(m.version);
+      if (m.type === "push-shown" || m.type === "push-failed") {
+        setReceipt((r) => ({ count: (r?.count ?? 0) + 1, at: m.at ?? Date.now(), error: m.error }));
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    navigator.serviceWorker.ready.then((reg) => reg.active?.postMessage("version?")).catch(() => {});
+    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
   }, []);
 
   // Sync after every change so the server always matches this screen.
@@ -220,6 +239,28 @@ export function SettingsView({
           {note}
         </p>
       )}
+      {receipt && (
+        <div className={`receipt ${receipt.error ? "bad" : ""}`} role="status">
+          {receipt.error ? (
+            <p>
+              เครื่องได้รับข้อความแล้ว แต่แสดงแจ้งเตือนไม่ได้: {receipt.error}
+            </p>
+          ) : (
+            <>
+              <p>
+                ✓ เครื่องได้รับแจ้งเตือนแล้ว เวลา{" "}
+                {new Date(receipt.at).toLocaleTimeString("th-TH", { timeZone: "Asia/Bangkok" })} (ครั้งที่ {receipt.count})
+              </p>
+              <p className="note">
+                ถ้าได้รับแต่ไม่เห็นเด้งหรือไม่มีเสียง แปลว่ามือถือตั้งแจ้งเตือนของเว็บนี้เป็นแบบเงียบ ไปที่ ตั้งค่าเครื่อง &gt;
+                แอป &gt; Chrome (หรือ เช็คฝน) &gt; การแจ้งเตือน แล้วเลือกหมวดของ rain-check-snowy.vercel.app ให้เป็น
+                &quot;มีเสียง/แจ้งเตือน&quot; และเปิด &quot;แสดงบนหน้าจอ&quot; ค่ะ
+              </p>
+            </>
+          )}
+        </div>
+      )}
+      {swVersion && <p className="note">ตัวจัดการแจ้งเตือนเวอร์ชัน {swVersion}</p>}
     </>
   );
 }

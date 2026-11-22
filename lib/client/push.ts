@@ -88,7 +88,7 @@ export async function localTestNotification(): Promise<LocalTestResult> {
       body: "ถ้าเห็นข้อความนี้ แปลว่ามือถือแสดงแจ้งเตือนได้ปกติค่ะ",
       icon: "/icon-192",
       badge: "/badge-96",
-      tag: "local-test",
+      tag: `local-test-${Date.now()}`,
       // Alert again on every tap instead of silently replacing the previous test.
       renotify: true,
     } as NotificationOptions);

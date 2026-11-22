@@ -24,7 +24,10 @@ export interface Notice {
 export async function sendNotice(device: DeviceRecord, notice: Notice): Promise<boolean> {
   if (!configure()) throw new Error("VAPID keys are not configured");
   try {
-    await webpush.sendNotification(device.subscription, JSON.stringify({ ...notice, url: "/" }), {
+    // A unique tag per message: with a shared tag Android can fold a new notification into
+    // the old one without alerting, which looked like "only the first one arrives".
+    const payload = { ...notice, tag: `${notice.tag}-${Date.now()}`, url: "/" };
+    await webpush.sendNotification(device.subscription, JSON.stringify(payload), {
       TTL: 60 * 30,
       urgency: "high",
     });
