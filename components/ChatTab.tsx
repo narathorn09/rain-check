@@ -5,6 +5,7 @@ import type { Profile } from "@/lib/profile";
 import type { Place } from "@/lib/types";
 import { Avatar } from "./Avatar";
 import { MicIcon, SpeakerIcon } from "./Icons";
+import { primeAudio } from "@/lib/client/pcmPlayer";
 import { speak as speakAloud, stopSpeaking } from "@/lib/client/speech";
 
 interface Msg {
@@ -81,6 +82,9 @@ export function ChatTab({ place, profile }: { place: Place; profile: Profile }) 
   async function ask(question: string) {
     const q = question.trim();
     if (!q || busy) return;
+    // Unlock audio now, while this still counts as the user's tap. The answer is read
+    // aloud after the network wait, when the browser would otherwise keep audio muted.
+    primeAudio();
     const next: Msg[] = [...msgs, { role: "user", text: q, at: Date.now() }];
     setMsgs(next);
     setText("");
@@ -130,6 +134,8 @@ export function ChatTab({ place, profile }: { place: Place; profile: Profile }) 
       recRef.current?.stop();
       return;
     }
+    // The spoken question is sent later from a speech event, not a tap; unlock audio here.
+    primeAudio();
     const r = makeRecognition();
     if (!r) return;
     recRef.current = r;
