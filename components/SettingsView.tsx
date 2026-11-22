@@ -9,9 +9,10 @@ import {
   sendTest,
   syncDevice,
   type LocalTestResult,
+  type ServerTestResult,
 } from "@/lib/client/push";
 import type { Settings } from "@/lib/client/settings";
-import { MorningTimeEditor, PlacePicker, SwitchRow } from "./controls";
+import { MorningTimeEditor, PlacePicker, ProfileEditor, SwitchRow } from "./controls";
 import { BackIcon, BellIcon, ChevronIcon, PinIcon, UmbrellaIcon } from "./Icons";
 import { Mascot } from "./Mascot";
 
@@ -28,6 +29,7 @@ export function SettingsView({
 }) {
   const [perm, setPerm] = useState<Perm>("default");
   const [changing, setChanging] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
   const [note, setNote] = useState("");
 
   useEffect(() => {
@@ -53,11 +55,13 @@ export function SettingsView({
   }
 
   async function test() {
-    setNote(
-      (await sendTest(settings.deviceId))
-        ? "ส่งจากเซิร์ฟเวอร์แล้ว ถ้าไม่เด้งภายใน 1 นาที ลองกด \"ทดสอบบนเครื่องนี้\" ค่ะ"
-        : "ส่งไม่สำเร็จ ลองเปิดแจ้งเตือนใหม่อีกครั้งค่ะ",
-    );
+    const notes: Record<ServerTestResult, string> = {
+      ok: "ส่งจากเซิร์ฟเวอร์แล้ว ถ้าไม่เด้งภายใน 1 นาที ลองกด \"ทดสอบบนเครื่องนี้\" ค่ะ",
+      "not-registered":
+        "เซิร์ฟเวอร์ยังจำเครื่องนี้ไม่ได้ ลองกด \"ปิดการแจ้งเตือนทั้งหมด\" แล้วเปิดใหม่อีกครั้งค่ะ",
+      "push-failed": "บริการแจ้งเตือนส่งไม่สำเร็จ ลองปิดแล้วเปิดการแจ้งเตือนใหม่อีกครั้งค่ะ",
+    };
+    setNote(notes[await sendTest(settings)]);
   }
 
   async function testHere() {
@@ -87,6 +91,35 @@ export function SettingsView({
           <Mascot face="happy" prop="wave" size={64} />
           <p>ตั้งค่าตรงนี้ แล้วน้องฝนจะคอยเตือนเรื่องฝนให้นะคะ</p>
         </div>
+      </div>
+
+      <p className="section-label">น้องฝนคุยกับใคร</p>
+      <div className="list">
+        <button type="button" className="list-row" onClick={() => setEditingProfile((v) => !v)} aria-expanded={editingProfile}>
+          <span className="lead">
+            <Mascot size={34} still />
+          </span>
+          <span className="row-main">
+            <span className="row-title" style={{ display: "block" }}>
+              เรียกว่า {settings.callName || "(ไม่ระบุชื่อ)"}
+            </span>
+            <span className="row-sub" style={{ display: "block" }}>{settings.routine || "ไม่ระบุว่าทำอะไรประจำ"}</span>
+          </span>
+          <span className="trail">
+            {editingProfile ? "เสร็จ" : "แก้ไข"} <ChevronIcon />
+          </span>
+        </button>
+        {editingProfile && (
+          <div className="list-row block">
+            <ProfileEditor
+              value={{ callName: settings.callName, routine: settings.routine }}
+              onChange={(p) => update(p)}
+            />
+            <p className="note" style={{ marginTop: 12 }}>
+              น้องฝนจะใช้ชื่อนี้ทักทาย ตอบคำถาม และในแจ้งเตือนตอนเช้า เปลี่ยนได้ตลอดเวลาค่ะ
+            </p>
+          </div>
+        )}
       </div>
 
       <p className="section-label">สถานที่</p>

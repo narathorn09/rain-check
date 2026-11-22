@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { enablePush, pushSupported, syncDevice } from "@/lib/client/push";
 import type { Settings } from "@/lib/client/settings";
 import type { Sky } from "@/lib/sky";
-import { PlacePicker } from "./controls";
+import { PlacePicker, ProfileEditor } from "./controls";
 import { Mascot, type Face, type Prop } from "./Mascot";
 import { WeatherScene } from "./WeatherScene";
 
@@ -12,11 +12,12 @@ interface InstallEvent extends Event {
   prompt: () => Promise<void>;
 }
 
-const SCENES: Sky[] = ["sunny", "rain", "storm"];
+const SCENES: Sky[] = ["partly", "sunny", "rain", "storm"];
 
 // น้องฝน introduces each setup step.
 const GUIDE: { face: Face; prop: Prop; line: string }[] = [
-  { face: "happy", prop: "wave", line: "สวัสดีค่ะ หนูชื่อน้องฝน จะช่วยดูฝนให้นะคะ" },
+  { face: "happy", prop: "wave", line: "สวัสดีค่ะ หนูชื่อน้องฝน ขอรู้จักกันหน่อยนะคะ" },
+  { face: "happy", prop: "none", line: "บอกหนูหน่อยว่าอยู่ที่ไหน จะได้ดูฝนให้ถูกที่ค่ะ" },
   { face: "happy", prop: "umbrella", line: "ให้หนูเตือนก่อนฝนตกนะคะ" },
   { face: "happy", prop: "wave", line: "วางหนูไว้หน้าจอหลัก จะได้เปิดง่ายๆ ค่ะ" },
 ];
@@ -70,6 +71,22 @@ export function Wizard({ settings, update }: { settings: Settings; update: (p: P
 
       {step === 1 && (
         <>
+          <h2>รู้จักกันหน่อย</h2>
+          <p className="lede">น้องฝนจะใช้เรียกและให้คำแนะนำที่เหมาะกับคุณค่ะ</p>
+          <ProfileEditor
+            value={{ callName: settings.callName, routine: settings.routine }}
+            onChange={(p) => update(p)}
+          />
+          <div className="onboard-actions">
+            <button type="button" className="btn primary wide" onClick={next}>
+              ถัดไป
+            </button>
+          </div>
+        </>
+      )}
+
+      {step === 2 && (
+        <>
           <h2>เลือกสถานที่</h2>
           <p className="lede">ใช้ดูฝนและส่งแจ้งเตือน เลือกที่ที่อยู่เป็นประจำค่ะ</p>
           {settings.place ? (
@@ -90,7 +107,7 @@ export function Wizard({ settings, update }: { settings: Settings; update: (p: P
         </>
       )}
 
-      {step === 2 && (
+      {step === 3 && (
         <>
           <h2>แจ้งเตือนฝน</h2>
           <p className="lede">
@@ -118,7 +135,7 @@ export function Wizard({ settings, update }: { settings: Settings; update: (p: P
         </>
       )}
 
-      {step === 3 && (
+      {step === 4 && (
         <>
           <h2>วางไว้บนหน้าจอหลัก</h2>
           <p className="lede">จะได้กดเปิดจากหน้าจอโทรศัพท์ได้เลย เหมือนแอปทั่วไปค่ะ</p>

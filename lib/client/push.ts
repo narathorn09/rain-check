@@ -64,6 +64,7 @@ export async function syncDevice(s: Settings): Promise<boolean> {
       id: s.deviceId,
       subscription: sub.toJSON(),
       place: s.place,
+      callName: s.callName,
       morning: s.morning,
       morningMinutes: s.morningMinutes,
       alert: s.alert,
@@ -95,11 +96,24 @@ export async function localTestNotification(): Promise<LocalTestResult> {
   }
 }
 
-export async function sendTest(deviceId: string): Promise<boolean> {
-  const res = await fetch("/api/push", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id: deviceId }),
-  });
-  return res.ok;
+export type ServerTestResult = "ok" | "not-registered" | "push-failed";
+
+/**
+ * Asks the server to push a test message. If the server has no record of this phone,
+ * registers it again and retries once, so a lost record repairs itself.
+ */
+export async function sendTest(s: Settings): Promise<ServerTestResult> {
+  const post = () =>
+    fetch("/api/push", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: s.deviceId }),
+    });
+  let res = await post();
+  if (res.status === 404) {
+    if (!(await syncDevice(s))) return "not-registered";
+    res = await post();
+    if (res.status === 404) return "not-registered";
+  }
+  return res.ok ? "ok" : "push-failed";
 }

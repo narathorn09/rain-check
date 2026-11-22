@@ -1,6 +1,6 @@
-import { ApiError, GoogleGenAI } from "@google/genai";
+import { ApiError, GoogleGenAI, type GenerateContentResponse } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
-import { isWav, pcmToWav, rateFromMime } from "@/lib/wav";
+import { isWav } from "@/lib/wav";
 
 export const maxDuration = 30;
 
@@ -13,11 +13,32 @@ const MODELS = [
     .map((m) => m.trim())
     .filter(Boolean),
 ].filter((m, i, all) => all.indexOf(m) === i);
-const VOICE = process.env.GEMINI_TTS_VOICE ?? "Kore";
+// "Leda" is listed as youthful, which suits a "little sister" character; Kore sounded firm.
+// Both voice and style can be changed in Vercel without a code change.
+const VOICE = process.env.GEMINI_TTS_VOICE ?? "Leda";
+const STYLE =
+  process.env.GEMINI_TTS_STYLE ??
+  "Warm, friendly and caring, like a cheerful young relative chatting with an older family member. " +
+    "Natural conversational Thai with a gentle smile in the voice, relaxed pace, " +
+    "clear pronunciation, soft polite endings. Not robotic, not like a news reader.";
 const FALLBACK_STATUSES = new Set([404, 429, 500, 503, 504]);
-// Caps audio size (~1 MB per 20 s of speech) and cost; chat answers are far shorter.
+// Caps audio length and cost; chat answers are far shorter.
 const MAX_CHARS = 600;
+// Streaming responses default to headerless 16-bit mono PCM at this rate.
+const SAMPLE_RATE = 24000;
 
+function pcmOf(chunk: GenerateContentResponse): Uint8Array | null {
+  const part = chunk.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data);
+  if (!part?.inlineData?.data) return null;
+  const bytes = new Uint8Array(Buffer.from(part.inlineData.data, "base64"));
+  // Strip a WAV header if one ever arrives, so the client only ever sees raw PCM.
+  return isWav(bytes) ? bytes.subarray(44) : bytes;
+}
+
+/**
+ * Streams raw PCM (audio/L16) as Gemini produces it, so the phone can start playing
+ * after the first chunk instead of waiting for the whole clip.
+ */
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "speech not configured" }, { status: 503 });
@@ -37,17 +58,19 @@ export async function POST(req: NextRequest) {
       retryOptions: { attempts: 1 },
     },
   });
-  const abortSignal = AbortSignal.timeout(25_000);
+  const abortSignal = AbortSignal.timeout(28_000);
 
-  let lastError: unknown;
+  // Pick a model by waiting for its first chunk: errors surface there, before any bytes
+  // are sent, so a failing model can still fall back to the next one.
+  let opened: { iterator: AsyncIterator<GenerateContentResponse>; first: GenerateContentResponse } | null = null;
   for (const model of MODELS) {
     try {
-      const res = await ai.models.generateContent({
+      const stream = await ai.models.generateContentStream({
         model,
         contents: [
           {
             role: "user",
-            parts: [{ text, speechMetadata: { style: "อบอุ่น เป็นกันเอง พูดช้าและชัด สำหรับผู้สูงอายุ" } }],
+            parts: [{ text, speechMetadata: { style: STYLE } }],
           },
         ],
         config: {
@@ -56,22 +79,52 @@ export async function POST(req: NextRequest) {
           abortSignal,
         },
       });
-      const part = res.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data);
-      if (!part?.inlineData?.data) throw new Error("no audio in response");
-
-      const raw = new Uint8Array(Buffer.from(part.inlineData.data, "base64"));
-      // Unary responses are documented as WAV already; wrap raw PCM just in case.
-      const wav = isWav(raw) ? raw : pcmToWav(raw, rateFromMime(part.inlineData.mimeType));
-      return new NextResponse(Buffer.from(wav), {
-        headers: { "Content-Type": "audio/wav", "Cache-Control": "private, max-age=3600" },
-      });
+      const iterator = stream[Symbol.asyncIterator]();
+      const first = await iterator.next();
+      if (first.done) throw new Error("empty audio stream");
+      opened = { iterator, first: first.value };
+      break;
     } catch (err) {
-      lastError = err;
       const status = err instanceof ApiError ? err.status : undefined;
       console.warn(`tts: model ${model} failed`, status ?? err);
       if (status === undefined || !FALLBACK_STATUSES.has(status)) break;
     }
   }
-  console.error("tts failed", lastError);
-  return NextResponse.json({ error: "speech unavailable" }, { status: 502 });
+  if (!opened) return NextResponse.json({ error: "speech unavailable" }, { status: 502 });
+
+  const { iterator } = opened;
+  let pending: GenerateContentResponse | null = opened.first;
+  const audio = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        while (true) {
+          const chunk = pending ?? (await iterator.next().then((r) => (r.done ? null : r.value)));
+          pending = null;
+          if (!chunk) {
+            controller.close();
+            return;
+          }
+          const pcm = pcmOf(chunk);
+          if (pcm?.length) {
+            controller.enqueue(pcm);
+            return;
+          }
+        }
+      } catch (err) {
+        // Mid-stream failure: end cleanly so the phone plays what it already has.
+        console.error("tts stream failed", err);
+        controller.close();
+      }
+    },
+    cancel() {
+      iterator.return?.();
+    },
+  });
+
+  return new Response(audio, {
+    headers: {
+      "Content-Type": `audio/L16; rate=${SAMPLE_RATE}; channels=1`,
+      "Cache-Control": "no-store",
+    },
+  });
 }

@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
         // Mark first so a failed send is not retried every 10 minutes all morning.
         next = { ...next, lastMorning: now.date };
         await saveDevice(next);
-        if (await sendNotice(d, morningMessage(f, now, d.place))) sent++;
+        if (await sendNotice(d, morningMessage(f, now, d.place, d.callName))) sent++;
       }
       if (dueAdvance) {
         const adv = advanceMessage(f, now, d.place);

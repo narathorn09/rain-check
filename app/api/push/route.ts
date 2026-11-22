@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendNotice } from "@/lib/push";
 import { testMessage } from "@/lib/messages";
+import { cleanProfile } from "@/lib/profile";
 import { DEVICE_ID, deleteDevice, getDevice, saveDevice } from "@/lib/store";
 import { validCoords } from "@/lib/weather";
 import type { DeviceRecord } from "@/lib/types";
@@ -29,6 +30,7 @@ function parse(body: unknown): DeviceRecord | null {
     id: b.id,
     subscription: { endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } },
     place: { name: String(b.place?.name ?? "สถานที่ของฉัน").slice(0, 60), lat, lon },
+    callName: cleanProfile({ callName: b.callName }).callName,
     morning: b.morning === true,
     morningMinutes,
     alert: b.alert === true,

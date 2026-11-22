@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { Profile } from "../profile";
 import type { Place } from "../types";
 
-export interface Settings {
+export interface Settings extends Profile {
   deviceId: string;
   place: Place | null;
   morning: boolean;
@@ -22,6 +23,8 @@ function fresh(): Settings {
     morningMinutes: 5 * 60 + 30,
     alert: true,
     setupDone: false,
+    callName: "",
+    routine: "",
   };
 }
 
@@ -34,7 +37,14 @@ function load(): Settings {
         sellSpot?: Place | null;
         window?: unknown;
       };
-      return { ...fresh(), ...saved, place: saved.place ?? sellSpot ?? null };
+      return {
+        ...fresh(),
+        ...saved,
+        place: saved.place ?? sellSpot ?? null,
+        // Phones set up before profiles existed belong to the original user, a market seller.
+        callName: saved.callName ?? "คุณแม่",
+        routine: saved.routine ?? "ขายของกลางแจ้ง",
+      };
     }
   } catch {
     // Storage can be blocked; fall through to defaults.

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { getPosition, placeName, type GeoError } from "@/lib/client/geo";
 import { clock } from "@/lib/time";
+import { CALL_NAMES, ROUTINES, type Profile } from "@/lib/profile";
 import type { Place } from "@/lib/types";
 import { PinIcon } from "./Icons";
 
@@ -77,6 +78,63 @@ export function SwitchRow({
         <i aria-hidden="true" />
       </span>
     </button>
+  );
+}
+
+/** Picks how น้องฝน addresses the user and what they usually do. */
+export function ProfileEditor({ value, onChange }: { value: Profile; onChange: (p: Profile) => void }) {
+  const custom = value.callName && !CALL_NAMES.includes(value.callName) ? value.callName : "";
+  const [typed, setTyped] = useState(custom);
+
+  return (
+    <div className="stack">
+      <div>
+        <p className="stepper-label">น้องฝนเรียกคุณว่า</p>
+        <div className="chips">
+          {CALL_NAMES.map((n) => (
+            <button
+              key={n}
+              type="button"
+              className={`chip ${value.callName === n ? "on" : ""}`}
+              aria-pressed={value.callName === n}
+              onClick={() => {
+                setTyped("");
+                onChange({ ...value, callName: n });
+              }}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+        <input
+          className="text-input"
+          value={typed}
+          onChange={(e) => {
+            setTyped(e.target.value);
+            onChange({ ...value, callName: e.target.value.slice(0, 30) });
+          }}
+          placeholder="หรือพิมพ์ชื่อเอง เช่น พี่สมศรี"
+          aria-label="ชื่อที่ให้น้องฝนเรียก"
+          maxLength={30}
+        />
+      </div>
+      <div>
+        <p className="stepper-label">ทำอะไรเป็นประจำ</p>
+        <div className="chips">
+          {[...ROUTINES, ""].map((r) => (
+            <button
+              key={r || "none"}
+              type="button"
+              className={`chip ${value.routine === r ? "on" : ""}`}
+              aria-pressed={value.routine === r}
+              onClick={() => onChange({ ...value, routine: r })}
+            >
+              {r || "ไม่ระบุ"}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 

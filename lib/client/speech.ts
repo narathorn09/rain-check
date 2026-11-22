@@ -1,6 +1,8 @@
 "use client";
 
 import { splitForSpeech } from "../speechText";
+import { pcmToWav, rateFromMime } from "../wav";
+import { playPcmStream, primeAudio, stopPcm } from "./pcmPlayer";
 
 export type SpeakResult = "ok" | "unsupported" | "no-thai-voice";
 
@@ -23,7 +25,7 @@ export function speechSupported(): boolean {
 }
 
 let currentAudio: HTMLAudioElement | null = null;
-// Object URLs of server-made audio, so replaying an answer costs no new TTS call.
+// Object URLs of finished server audio, so replaying an answer costs no new TTS call.
 const audioCache = new Map<string, string>();
 const MAX_CACHED = 20;
 
@@ -31,44 +33,55 @@ export function stopSpeaking(): void {
   generation++;
   currentAudio?.pause();
   currentAudio = null;
+  stopPcm();
   if (speechSupported()) window.speechSynthesis.cancel();
 }
 
-async function serverAudioUrl(text: string): Promise<string> {
-  const hit = audioCache.get(text);
-  if (hit) return hit;
-  const res = await fetch("/api/tts", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
-  });
-  if (!res.ok) throw new Error(`tts ${res.status}`);
-  const url = URL.createObjectURL(await res.blob());
+function remember(text: string, pcm: Uint8Array, rate: number) {
   if (audioCache.size >= MAX_CACHED) {
     const [oldText, oldUrl] = audioCache.entries().next().value as [string, string];
     URL.revokeObjectURL(oldUrl);
     audioCache.delete(oldText);
   }
-  audioCache.set(text, url);
-  return url;
+  const wav = pcmToWav(pcm, rate);
+  audioCache.set(text, URL.createObjectURL(new Blob([wav.buffer as ArrayBuffer], { type: "audio/wav" })));
+}
+
+async function playUrl(url: string, onDone: () => void) {
+  const audio = new Audio(url);
+  currentAudio = audio;
+  audio.onended = () => onDone();
+  audio.onerror = () => onDone();
+  await audio.play();
 }
 
 /**
  * Reads text aloud with a Thai voice made on the server (many phones only ship an English
- * voice, which skips Thai and reads just the digits). Falls back to the phone's own voice
- * if the server cannot make audio. `onDone` fires when playback ends.
+ * voice, which skips Thai and reads just the digits). The audio streams in and starts
+ * playing after the first chunk. Falls back to the phone's own voice if the server cannot
+ * make audio. `onDone` fires when playback ends.
  */
 export async function speak(text: string, onDone: () => void): Promise<SpeakResult> {
   stopSpeaking();
   const mine = generation;
+  // Must run before any await so the audio unlock counts as part of the user's tap.
+  primeAudio();
   try {
-    const url = await serverAudioUrl(text);
+    const cached = audioCache.get(text);
+    if (cached) {
+      await playUrl(cached, onDone);
+      return "ok";
+    }
+    const res = await fetch("/api/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok || !res.body) throw new Error(`tts ${res.status}`);
     if (mine !== generation) return "ok";
-    const audio = new Audio(url);
-    currentAudio = audio;
-    audio.onended = () => onDone();
-    audio.onerror = () => onDone();
-    await audio.play();
+    const rate = rateFromMime(res.headers.get("content-type") ?? undefined);
+    const pcm = await playPcmStream(res.body, rate, () => mine !== generation, onDone);
+    if (pcm.length && mine === generation) remember(text, pcm, rate);
     return "ok";
   } catch {
     // A newer tap already took over; do not start the fallback voice behind it.

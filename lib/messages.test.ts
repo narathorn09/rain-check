@@ -22,6 +22,11 @@ describe("morningMessage", () => {
     expect(m.body).toContain("ตลาดสด");
   });
 
+  it("greets by name when one is set", () => {
+    expect(morningMessage(forecast([]), at, place, "คุณยาย").body.startsWith("อรุณสวัสดิ์ค่ะคุณยาย")).toBe(true);
+    expect(morningMessage(forecast([]), at, place).body.startsWith("วันนี้")).toBe(true);
+  });
+
   it("ignores rain outside the daytime hours", () => {
     expect(morningMessage(forecast([2, 23]), at, place).body).toContain("ฝนไม่ตก");
   });

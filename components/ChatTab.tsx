@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { Profile } from "@/lib/profile";
 import type { Place } from "@/lib/types";
 import { Avatar } from "./Avatar";
 import { MicIcon, SpeakerIcon } from "./Icons";
@@ -14,14 +15,13 @@ interface Msg {
 }
 
 const QUICK = [
-  "วันนี้ควรพกร่มไหม",
   "วันนี้ฝนจะตกตอนไหน",
   "ออกจากบ้านกี่โมงดี",
   "พรุ่งนี้ฝนจะตกไหม",
 ];
 
-const GREETING =
-  "สวัสดีค่ะ น้องฝนเองค่ะ ถามเรื่องฝนได้เลยนะคะ กดปุ่มด้านล่างหรือพูดก็ได้ค่ะ";
+// The "สวัสดีค่ะ<name>" opening is added per user in ChatTab.
+const GREETING = "น้องฝนเองค่ะ ถามเรื่องฝนได้เลยนะคะ กดปุ่มด้านล่างหรือพูดก็ได้ค่ะ";
 
 function hhmm(at: number): string {
   return new Date(at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" });
@@ -47,7 +47,8 @@ function makeRecognition(): Recognition | null {
   return r;
 }
 
-export function ChatTab({ place }: { place: Place }) {
+export function ChatTab({ place, profile }: { place: Place; profile: Profile }) {
+  const greeting = profile.callName ? `สวัสดีค่ะ${profile.callName} ${GREETING}` : `สวัสดีค่ะ ${GREETING}`;
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -80,7 +81,7 @@ export function ChatTab({ place }: { place: Place }) {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next.map(({ role, text }) => ({ role, text })), place }),
+        body: JSON.stringify({ messages: next.map(({ role, text }) => ({ role, text })), place, profile }),
       });
       const data = (await res.json()) as { text?: string };
       if (!res.ok || !data.text) throw new Error();
@@ -132,15 +133,11 @@ export function ChatTab({ place }: { place: Place }) {
     r.start();
   }
 
-  // A suggestion disappears once it has been asked, by tap or by typing the same words.
-  const asked = new Set(msgs.filter((m) => m.role === "user").map((m) => m.text));
-  const remaining = QUICK.filter((q) => !asked.has(q));
-
   return (
     <div className="chat">
       <div className="chat-log" aria-live="polite">
         <span className="day-chip">วันนี้</span>
-        <ModelBubble text={GREETING} />
+        <ModelBubble text={greeting} />
         {msgs.map((m, i) =>
           m.role === "user" ? (
             <div key={i} className="msg user">
@@ -181,15 +178,13 @@ export function ChatTab({ place }: { place: Place }) {
           </p>
         )}
 
-        {remaining.length > 0 && (
-          <div className="pills" aria-label="คำถามที่ถามบ่อย">
-            {remaining.map((q) => (
-              <button key={q} type="button" className="pill" onClick={() => ask(q)} disabled={busy}>
-                {q}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="pills" aria-label="คำถามที่ถามบ่อย">
+          {QUICK.map((q) => (
+            <button key={q} type="button" className="pill" onClick={() => ask(q)} disabled={busy}>
+              {q}
+            </button>
+          ))}
+        </div>
 
         <form
           className="composer"

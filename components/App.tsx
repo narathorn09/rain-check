@@ -154,7 +154,9 @@ export function App() {
       <section className="content">
         {tab === "rain" && <RainTab place={place} here={isHere} nowTick={tick} />}
         {tab === "radar" && <RadarTab place={place} />}
-        {tab === "chat" && <ChatTab place={place} />}
+        {tab === "chat" && (
+          <ChatTab place={place} profile={{ callName: settings.callName, routine: settings.routine }} />
+        )}
       </section>
 
       <nav className="tabs" aria-label="เมนูหลัก">

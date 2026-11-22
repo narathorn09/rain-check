@@ -4,11 +4,12 @@ import type { Forecast, Place } from "./types";
 
 // Fixed templates keep alerts predictable and free; only the chat tab uses the model.
 
-export function morningMessage(f: Forecast, now: BangkokNow, place: Place) {
+export function morningMessage(f: Forecast, now: BangkokNow, place: Place, callName = "") {
   const slots = slotsInWindow(f.slots, { ...now, hour: 0 });
   const s = summarize(slots, `วันนี้ที่${place.name}`);
   const tail = s.kind === "dry" ? "ออกไปทำธุระได้สบายค่ะ" : "อย่าลืมพกร่มด้วยนะคะ";
-  return { title: "เช็คฝน: สรุปเช้านี้", body: `${s.text} ${tail}`, tag: "morning" };
+  const hello = callName ? `อรุณสวัสดิ์ค่ะ${callName} ` : "";
+  return { title: "เช็คฝน: สรุปเช้านี้", body: `${hello}${s.text} ${tail}`, tag: "morning" };
 }
 
 /** Returns null when no alert is warranted right now. */

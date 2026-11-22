@@ -6,6 +6,12 @@ const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
 const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
 const redis = url && token ? new Redis({ url, token }) : null;
 
+/** "memory" in production means Redis env vars are missing and devices will be lost. */
+export const storageMode: "redis" | "memory" = redis ? "redis" : "memory";
+if (!redis && process.env.VERCEL) {
+  console.error("store: no Redis credentials found (KV_REST_API_* or UPSTASH_REDIS_REST_*); using memory");
+}
+
 const g = globalThis as unknown as { __devices?: Map<string, DeviceRecord> };
 const memory = (g.__devices ??= new Map<string, DeviceRecord>());
 

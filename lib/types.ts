@@ -46,6 +46,8 @@ export interface DeviceRecord {
     keys: { p256dh: string; auth: string };
   };
   place: Place;
+  /** How to address the user in notifications; empty for no name. */
+  callName?: string;
   morning: boolean;
   /** Minutes after midnight (Bangkok) for the morning summary. */
   morningMinutes: number;
