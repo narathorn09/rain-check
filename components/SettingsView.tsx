@@ -11,14 +11,9 @@ import {
   type LocalTestResult,
   type ServerTestResult,
 } from "@/lib/client/push";
-import { VOLUME_LEVELS, type Settings } from "@/lib/client/settings";
-import { primeAudio, setVolume } from "@/lib/client/pcmPlayer";
-import { speak } from "@/lib/client/speech";
-import { MorningTimeEditor, PlacePicker, ProfileEditor, Stepper, SwitchRow } from "./controls";
-
-// Fixed sentence, so after the first listen it plays from the cache without a new request.
-const VOLUME_SAMPLE = "เสียงน้องฝนดังประมาณนี้ค่ะ ฟังชัดไหมคะ";
-import { BackIcon, BellIcon, ChevronIcon, PinIcon, SpeakerIcon, UmbrellaIcon } from "./Icons";
+import type { Settings } from "@/lib/client/settings";
+import { MorningTimeEditor, PlacePicker, ProfileEditor, SwitchRow, VolumeEditor } from "./controls";
+import { BackIcon, BellIcon, ChevronIcon, PinIcon, UmbrellaIcon } from "./Icons";
 import { Mascot } from "./Mascot";
 
 type Perm = "granted" | "denied" | "default" | "unsupported";
@@ -242,27 +237,7 @@ export function SettingsView({
       <p className="section-label">เสียง</p>
       <div className="list">
         <div className="list-row block">
-          <Stepper
-            label="ระดับเสียงน้องฝน"
-            text={VOLUME_LEVELS[settings.volume]?.label ?? ""}
-            onMinus={() => update({ volume: settings.volume - 1 })}
-            onPlus={() => update({ volume: settings.volume + 1 })}
-            minusDisabled={settings.volume <= 0}
-            plusDisabled={settings.volume >= VOLUME_LEVELS.length - 1}
-          />
-          <button
-            type="button"
-            className="btn wide with-icon"
-            style={{ marginTop: 12 }}
-            onClick={() => {
-              // Unlock audio in the tap, then apply the new level before the sample starts.
-              primeAudio();
-              setVolume(VOLUME_LEVELS[settings.volume]?.gain ?? 1);
-              speak(VOLUME_SAMPLE, () => {});
-            }}
-          >
-            <SpeakerIcon /> ลองฟังเสียง
-          </button>
+          <VolumeEditor level={settings.volume} onChange={(volume) => update({ volume })} />
           <p className="note" style={{ marginTop: 8 }}>
             ใช้กับทั้งตอนกดฟังคำตอบและตอนโทรคุย ถ้ายังเบา กดปุ่มเพิ่มเสียงข้างเครื่องด้วยค่ะ
           </p>

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { enablePush, pushSupported, syncDevice } from "@/lib/client/push";
 import type { Settings } from "@/lib/client/settings";
 import type { Sky } from "@/lib/sky";
-import { PlacePicker, ProfileEditor } from "./controls";
+import { PlacePicker, ProfileEditor, VolumeEditor } from "./controls";
 import { Mascot, type Face, type Prop } from "./Mascot";
 import { WeatherScene } from "./WeatherScene";
 
@@ -12,13 +12,14 @@ interface InstallEvent extends Event {
   prompt: () => Promise<void>;
 }
 
-const SCENES: Sky[] = ["partly", "sunny", "rain", "storm"];
+const SCENES: Sky[] = ["partly", "sunny", "rain", "cloudy", "storm"];
 
 // น้องฝน introduces each setup step.
 const GUIDE: { face: Face; prop: Prop; line: string }[] = [
   { face: "happy", prop: "wave", line: "สวัสดีค่ะ หนูชื่อน้องฝน ขอรู้จักกันหน่อยนะคะ" },
   { face: "happy", prop: "none", line: "บอกหนูหน่อยว่าอยู่ที่ไหน จะได้ดูฝนให้ถูกที่ค่ะ" },
   { face: "happy", prop: "umbrella", line: "ให้หนูเตือนก่อนฝนตกนะคะ" },
+  { face: "happy", prop: "wave", line: "ลองฟังเสียงหนูหน่อย ดังพอไหมคะ" },
   { face: "happy", prop: "wave", line: "วางหนูไว้หน้าจอหลัก จะได้เปิดง่ายๆ ค่ะ" },
 ];
 
@@ -136,6 +137,22 @@ export function Wizard({ settings, update }: { settings: Settings; update: (p: P
       )}
 
       {step === 4 && (
+        <>
+          <h2>เสียงน้องฝน</h2>
+          <p className="lede">กด &quot;ลองฟังเสียง&quot; แล้วปรับให้ได้ยินชัด ใช้ตอนฟังคำตอบและตอนโทรคุยกับน้องฝนค่ะ</p>
+          <VolumeEditor level={settings.volume} onChange={(volume) => update({ volume })} />
+          <p className="note" style={{ textAlign: "center" }}>
+            ถ้ายังเบา กดปุ่มเพิ่มเสียงข้างเครื่องด้วยนะคะ เปลี่ยนภายหลังได้ที่หน้าตั้งค่า
+          </p>
+          <div className="onboard-actions">
+            <button type="button" className="btn primary wide" onClick={next}>
+              ถัดไป
+            </button>
+          </div>
+        </>
+      )}
+
+      {step === 5 && (
         <>
           <h2>วางไว้บนหน้าจอหลัก</h2>
           <p className="lede">จะได้กดเปิดจากหน้าจอโทรศัพท์ได้เลย เหมือนแอปทั่วไปค่ะ</p>

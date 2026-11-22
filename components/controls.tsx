@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import { getPosition, placeName, type GeoError } from "@/lib/client/geo";
+import { primeAudio, setVolume } from "@/lib/client/pcmPlayer";
+import { VOLUME_LEVELS } from "@/lib/client/settings";
+import { speak } from "@/lib/client/speech";
 import { clock } from "@/lib/time";
 import { CALL_NAMES, ROUTINES, type Profile } from "@/lib/profile";
 import type { Place } from "@/lib/types";
-import { PinIcon } from "./Icons";
+import { PinIcon, SpeakerIcon } from "./Icons";
 
 /** Large +/- control; avoids small wheel pickers that are hard to use. */
 export function Stepper({
@@ -36,6 +39,38 @@ export function Stepper({
         </button>
       </div>
     </div>
+  );
+}
+
+// Fixed sentence, so after the first listen it plays from the cache without a new request.
+const VOLUME_SAMPLE = "เสียงน้องฝนดังประมาณนี้ค่ะ ฟังชัดไหมคะ";
+
+/** Volume steps plus a button to hear น้องฝน at the chosen level. */
+export function VolumeEditor({ level, onChange }: { level: number; onChange: (level: number) => void }) {
+  return (
+    <>
+      <Stepper
+        label="ระดับเสียงน้องฝน"
+        text={VOLUME_LEVELS[level]?.label ?? ""}
+        onMinus={() => onChange(level - 1)}
+        onPlus={() => onChange(level + 1)}
+        minusDisabled={level <= 0}
+        plusDisabled={level >= VOLUME_LEVELS.length - 1}
+      />
+      <button
+        type="button"
+        className="btn wide with-icon"
+        style={{ marginTop: 12 }}
+        onClick={() => {
+          // Unlock audio in the tap, then apply the level before the sample starts.
+          primeAudio();
+          setVolume(VOLUME_LEVELS[level]?.gain ?? 1);
+          speak(VOLUME_SAMPLE, () => {});
+        }}
+      >
+        <SpeakerIcon /> ลองฟังเสียง
+      </button>
+    </>
   );
 }
 
