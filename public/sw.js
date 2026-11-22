@@ -13,6 +13,9 @@ self.addEventListener("push", (event) => {
     self.registration.showNotification(data.title || "เช็คฝน", {
       body: data.body || "",
       tag: data.tag || "rain",
+      // A notification with the same tag otherwise replaces the old one silently,
+      // so a second test or a second alert in a day would seem never to arrive.
+      renotify: true,
       icon: "/icon-192",
       badge: "/badge-96",
       data: { url: data.url || "/" },

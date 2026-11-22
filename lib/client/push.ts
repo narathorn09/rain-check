@@ -89,7 +89,9 @@ export async function localTestNotification(): Promise<LocalTestResult> {
       icon: "/icon-192",
       badge: "/badge-96",
       tag: "local-test",
-    });
+      // Alert again on every tap instead of silently replacing the previous test.
+      renotify: true,
+    } as NotificationOptions);
     return "ok";
   } catch {
     return "error";

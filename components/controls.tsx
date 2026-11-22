@@ -85,6 +85,8 @@ export function SwitchRow({
 export function ProfileEditor({ value, onChange }: { value: Profile; onChange: (p: Profile) => void }) {
   const custom = value.callName && !CALL_NAMES.includes(value.callName) ? value.callName : "";
   const [typed, setTyped] = useState(custom);
+  const customRoutine = value.routine && !ROUTINES.includes(value.routine) ? value.routine : "";
+  const [typedRoutine, setTypedRoutine] = useState(customRoutine);
 
   return (
     <div className="stack">
@@ -127,12 +129,26 @@ export function ProfileEditor({ value, onChange }: { value: Profile; onChange: (
               type="button"
               className={`chip ${value.routine === r ? "on" : ""}`}
               aria-pressed={value.routine === r}
-              onClick={() => onChange({ ...value, routine: r })}
+              onClick={() => {
+                setTypedRoutine("");
+                onChange({ ...value, routine: r });
+              }}
             >
               {r || "ไม่ระบุ"}
             </button>
           ))}
         </div>
+        <input
+          className="text-input"
+          value={typedRoutine}
+          onChange={(e) => {
+            setTypedRoutine(e.target.value);
+            onChange({ ...value, routine: e.target.value.slice(0, 60) });
+          }}
+          placeholder="หรือพิมพ์เอง เช่น ขับวินมอเตอร์ไซค์"
+          aria-label="สิ่งที่ทำเป็นประจำ"
+          maxLength={60}
+        />
       </div>
     </div>
   );
