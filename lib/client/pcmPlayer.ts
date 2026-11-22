@@ -73,6 +73,7 @@ class PcmStream extends AudioWorkletProcessor {
         const n = this.read();
         if (n === null) {
           if (this.draining && this.avail === 0) this.port.postMessage({ type: "drained" });
+          else this.port.postMessage({ type: "stall" });
           this.buffering = true; this.draining = false;
           break;
         }
@@ -170,6 +171,8 @@ export class PcmTimeline {
   private closed = false;
   private doneCallbacks: (() => void)[] = [];
   private readonly audio: AudioContext;
+  /** Times playback ran dry mid-clip and had to wait for more audio (heard as a gap). */
+  stalls = 0;
 
   constructor(
     private readonly rate: number,
@@ -193,6 +196,7 @@ export class PcmTimeline {
         });
         node.port.onmessage = (e) => {
           if (e.data?.type === "drained") this.fireDone();
+          else if (e.data?.type === "stall") this.stalls++;
         };
         node.connect(out);
         this.node = node;
