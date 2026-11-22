@@ -5,7 +5,9 @@ import { geoAlreadyGranted, getPosition } from "@/lib/client/geo";
 import { registerWorker, syncDevice } from "@/lib/client/push";
 import { useSettings } from "@/lib/client/settings";
 import type { Place } from "@/lib/types";
+import { Avatar } from "./Avatar";
 import { ChatTab } from "./ChatTab";
+import { ChatIcon, GearIcon, MapIcon, UmbrellaIcon } from "./Icons";
 import { RadarTab } from "./RadarTab";
 import { RainTab } from "./RainTab";
 import { SettingsView } from "./SettingsView";
@@ -13,10 +15,10 @@ import { Wizard } from "./Wizard";
 
 type Tab = "rain" | "radar" | "chat";
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: "rain", label: "ฝน", icon: "🌧️" },
-  { id: "radar", label: "เรดาร์", icon: "🗺️" },
-  { id: "chat", label: "ถามน้องฝน", icon: "💬" },
+const TABS: { id: Tab; label: string; Icon: () => React.JSX.Element }[] = [
+  { id: "rain", label: "ฝน", Icon: UmbrellaIcon },
+  { id: "radar", label: "เรดาร์", Icon: MapIcon },
+  { id: "chat", label: "ถามน้องฝน", Icon: ChatIcon },
 ];
 
 const REFRESH_MS = 5 * 60 * 1000;
@@ -76,7 +78,11 @@ export function App() {
   if (!settings.setupDone || !place) {
     return (
       <main className="shell">
-        <header className="top"><h1>เช็คฝน</h1></header>
+        <header className="appbar">
+          <div className="appbar-main">
+            <h1>เช็คฝน</h1>
+          </div>
+        </header>
         <Wizard settings={settings} update={update} />
       </main>
     );
@@ -90,21 +96,38 @@ export function App() {
     );
   }
 
+  const placeLine = (
+    <p className="appbar-sub">
+      {place.name}
+      {gps && (
+        <button type="button" className="link" onClick={() => setUseGps((v) => !v)}>
+          {useGps ? "ดูที่สถานที่ของฉัน" : "ดูที่ตำแหน่งตอนนี้"}
+        </button>
+      )}
+    </p>
+  );
+
   return (
     <main className="shell">
-      <header className="top">
-        <div>
-          <h1>เช็คฝน</h1>
-          <p className="place">
-            {place.name}
-            {gps && (
-              <button type="button" className="link" onClick={() => setUseGps((v) => !v)}>
-                {useGps ? "ดูที่สถานที่ของฉัน" : "ดูที่ตำแหน่งตอนนี้"}
-              </button>
-            )}
-          </p>
+      <header className="appbar">
+        <div className="appbar-main">
+          {tab === "chat" ? (
+            <>
+              <Avatar />
+              <div>
+                <h1>น้องฝน</h1>
+                <p className="appbar-sub">ผู้ช่วยเรื่องฝน · {place.name}</p>
+              </div>
+            </>
+          ) : (
+            <div>
+              <h1>{tab === "radar" ? "เรดาร์ฝน" : "เช็คฝน"}</h1>
+              {placeLine}
+            </div>
+          )}
         </div>
-        <button type="button" className="btn" onClick={() => setShowSettings(true)} aria-label="ตั้งค่า">
+        <button type="button" className="icon-btn" onClick={() => setShowSettings(true)}>
+          <GearIcon />
           ตั้งค่า
         </button>
       </header>
@@ -116,10 +139,10 @@ export function App() {
       </section>
 
       <nav className="tabs" aria-label="เมนูหลัก">
-        {TABS.map((t) => (
-          <button key={t.id} type="button" className={tab === t.id ? "on" : ""} aria-current={tab === t.id} onClick={() => setTab(t.id)}>
-            <span aria-hidden="true">{t.icon}</span>
-            {t.label}
+        {TABS.map(({ id, label, Icon }) => (
+          <button key={id} type="button" className={tab === id ? "on" : ""} aria-current={tab === id} onClick={() => setTab(id)}>
+            <Icon />
+            {label}
           </button>
         ))}
       </nav>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Place } from "@/lib/types";
 import { Avatar } from "./Avatar";
+import { MicIcon } from "./Icons";
 
 interface Msg {
   role: "user" | "model";
@@ -149,7 +150,15 @@ export function ChatTab({ place }: { place: Place }) {
             </ModelBubble>
           ),
         )}
-        {busy && <ModelBubble text="น้องฝนกำลังคิดอยู่ค่ะ…" />}
+        {busy && (
+          <ModelBubble text="">
+            <span className="typing" role="status" aria-label="น้องฝนกำลังพิมพ์">
+              <span />
+              <span />
+              <span />
+            </span>
+          </ModelBubble>
+        )}
         <div ref={endRef} />
       </div>
 
@@ -169,11 +178,16 @@ export function ChatTab({ place }: { place: Place }) {
         }}
       >
         {hasMic && (
-          <button type="button" className={`btn mic ${listening ? "live" : ""}`} onClick={toggleMic} aria-label="พูดถามน้องฝน">
-            {listening ? "กำลังฟัง…" : "พูดถาม"}
+          <button type="button" className={`mic ${listening ? "live" : ""}`} onClick={toggleMic} aria-label="พูดถามน้องฝน">
+            <MicIcon />
           </button>
         )}
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="พิมพ์คำถามที่นี่" aria-label="พิมพ์คำถาม" />
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={listening ? "พูดได้เลยค่ะ…" : "พิมพ์คำถาม"}
+          aria-label="พิมพ์คำถาม"
+        />
         <button type="submit" className="btn primary" disabled={busy || !text.trim()}>
           ส่ง
         </button>

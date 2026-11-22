@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { disablePush, enablePush, pushSupported, sendTest, syncDevice } from "@/lib/client/push";
 import type { Settings } from "@/lib/client/settings";
-import { MorningTimeEditor, PlacePicker, Switch } from "./controls";
+import { MorningTimeEditor, PlacePicker, SwitchRow } from "./controls";
+import { BackIcon, BellIcon, ChevronIcon, PinIcon, UmbrellaIcon } from "./Icons";
 
 type Perm = "granted" | "denied" | "default" | "unsupported";
 
@@ -47,72 +48,104 @@ export function SettingsView({
   }
 
   return (
-    <div className="sheet">
-      <div className="sheet-head">
-        <h2>ตั้งค่า</h2>
-        <button type="button" className="btn" onClick={onClose}>
-          กลับ
+    <>
+      <header className="appbar">
+        <button type="button" className="icon-btn" onClick={onClose} aria-label="กลับ">
+          <BackIcon />
         </button>
+        <div className="appbar-main">
+          <h1>ตั้งค่า</h1>
+        </div>
+      </header>
+
+      <p className="section-label">สถานที่</p>
+      <div className="list">
+        <button type="button" className="list-row" onClick={() => setChanging((v) => !v)} aria-expanded={changing}>
+          <span className="lead">
+            <PinIcon />
+          </span>
+          <span className="row-main">
+            <span className="row-title" style={{ display: "block" }}>สถานที่ของฉัน</span>
+            <span className="row-sub" style={{ display: "block" }}>{settings.place ? settings.place.name : "ยังไม่ได้เลือก"}</span>
+          </span>
+          <span className="trail">
+            เปลี่ยน <ChevronIcon />
+          </span>
+        </button>
+        {changing && (
+          <div className="list-row block">
+            <PlacePicker
+              onPick={(p) => {
+                update({ place: p });
+                setChanging(false);
+              }}
+            />
+          </div>
+        )}
       </div>
 
-      <section className="card stack">
-        <h3>สถานที่ของฉัน</h3>
-        <p className="big">{settings.place ? settings.place.name : "ยังไม่ได้เลือก"}</p>
-        {changing ? (
-          <PlacePicker
-            onPick={(p) => {
-              update({ place: p });
-              setChanging(false);
-            }}
-          />
-        ) : (
-          <button type="button" className="btn wide" onClick={() => setChanging(true)}>
-            เปลี่ยนสถานที่
-          </button>
-        )}
-      </section>
-
-      <section className="card stack">
-        <h3>แจ้งเตือน</h3>
+      <p className="section-label">การแจ้งเตือน</p>
+      <div className="list">
         {perm === "granted" ? (
           <>
-            <Switch
+            <SwitchRow
+              icon={<BellIcon />}
               checked={settings.morning}
               onChange={(v) => update({ morning: v })}
               title="สรุปฝนตอนเช้า"
               hint="บอกว่าวันนี้ฝนตกตอนไหน"
             />
-            {settings.morning && <MorningTimeEditor minutes={settings.morningMinutes} onChange={(m) => update({ morningMinutes: m })} />}
-            <Switch
+            {settings.morning && (
+              <div className="list-row block">
+                <MorningTimeEditor minutes={settings.morningMinutes} onChange={(m) => update({ morningMinutes: m })} />
+              </div>
+            )}
+            <SwitchRow
+              icon={<UmbrellaIcon />}
               checked={settings.alert}
               onChange={(v) => update({ alert: v })}
               title="เตือนก่อนฝนตก"
-              hint="เตือนเมื่อฝนจะตกใน 30 นาที (ตั้งแต่ตี 5 ถึง 3 ทุ่ม)"
+              hint="เตือนล่วงหน้า 1-3 ชั่วโมง และอีกครั้งก่อนตก 30 นาที (ตี 5 ถึง 3 ทุ่ม)"
             />
-            <button type="button" className="btn wide" onClick={test}>
-              ส่งข้อความทดสอบ
+            <button type="button" className="list-row" onClick={test}>
+              <span className="row-main">
+                <span className="row-title" style={{ display: "block" }}>ส่งข้อความทดสอบ</span>
+              </span>
+              <span className="trail">
+                <ChevronIcon />
+              </span>
             </button>
             <button
               type="button"
-              className="btn wide"
+              className="list-row danger"
               onClick={async () => {
                 await disablePush(settings.deviceId);
                 setPerm("default");
                 setNote("ปิดการแจ้งเตือนในแอปนี้แล้วค่ะ");
               }}
             >
-              ปิดการแจ้งเตือนทั้งหมด
+              <span className="row-main">
+                <span className="row-title" style={{ display: "block" }}>ปิดการแจ้งเตือนทั้งหมด</span>
+              </span>
             </button>
           </>
         ) : perm === "unsupported" ? (
-          <p className="note">เครื่องหรือเบราว์เซอร์นี้ยังไม่รองรับการแจ้งเตือนค่ะ</p>
+          <div className="list-row">
+            <p className="note">เครื่องหรือเบราว์เซอร์นี้ยังไม่รองรับการแจ้งเตือนค่ะ</p>
+          </div>
         ) : (
-          <button type="button" className="btn primary wide" onClick={turnOn}>
-            เปิดการแจ้งเตือน
-          </button>
+          <div className="list-row block">
+            <button type="button" className="btn primary wide" onClick={turnOn}>
+              เปิดการแจ้งเตือน
+            </button>
+          </div>
         )}
-        {note && <p className="note" role="status">{note}</p>}
-      </section>
-    </div>
+      </div>
+      {note && (
+        <p className="note" role="status">
+          {note}
+        </p>
+      )}
+    </>
   );
 }

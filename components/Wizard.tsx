@@ -3,13 +3,15 @@
 import { useEffect, useState } from "react";
 import { enablePush, pushSupported, syncDevice } from "@/lib/client/push";
 import type { Settings } from "@/lib/client/settings";
+import type { Level } from "@/lib/types";
 import { PlacePicker } from "./controls";
+import { WeatherScene } from "./WeatherScene";
 
 interface InstallEvent extends Event {
   prompt: () => Promise<void>;
 }
 
-const STEPS = 3;
+const SCENES: Level[] = ["dry", "light", "heavy"];
 
 /** One-time setup, meant to be done by a family member on the user's phone. */
 export function Wizard({ settings, update }: { settings: Settings; update: (p: Partial<Settings>) => void }) {
@@ -44,71 +46,93 @@ export function Wizard({ settings, update }: { settings: Settings; update: (p: P
   }
 
   return (
-    <div className="sheet wizard">
-      <p className="step-count">ขั้นตอนที่ {step} จาก {STEPS}</p>
+    <div className="onboard">
+      <div className="dots" aria-label={`ขั้นตอนที่ ${step} จาก ${SCENES.length}`}>
+        {SCENES.map((_, i) => (
+          <span key={i} className={`dot ${i + 1 === step ? "on" : ""}`} />
+        ))}
+      </div>
+      <div className="onboard-art">
+        <WeatherScene level={SCENES[step - 1]} />
+      </div>
 
       {step === 1 && (
-        <section className="card stack">
-          <h2>1. เลือกสถานที่</h2>
-          <p className="note">ใช้ดูฝนและส่งแจ้งเตือน เลือกที่ที่อยู่เป็นประจำค่ะ</p>
+        <>
+          <h2>เลือกสถานที่</h2>
+          <p className="lede">ใช้ดูฝนและส่งแจ้งเตือน เลือกที่ที่อยู่เป็นประจำค่ะ</p>
           {settings.place ? (
-            <>
-              <p className="big">เลือกแล้ว: {settings.place.name}</p>
+            <div className="onboard-actions">
+              <p className="big" style={{ textAlign: "center" }}>
+                เลือกแล้ว: {settings.place.name}
+              </p>
               <button type="button" className="btn primary wide" onClick={next}>
                 ถัดไป
               </button>
               <button type="button" className="btn wide" onClick={() => update({ place: null })}>
                 เลือกใหม่
               </button>
-            </>
+            </div>
           ) : (
             <PlacePicker onPick={(p) => update({ place: p })} />
           )}
-        </section>
+        </>
       )}
 
       {step === 2 && (
-        <section className="card stack">
-          <h2>2. แจ้งเตือนฝน</h2>
-          <p className="note">เตือนตอนเช้าว่าวันนี้ฝนตกตอนไหน และเตือนก่อนฝนจะตก ไม่ต้องเปิดแอปค่ะ</p>
-          {pushSupported() ? (
-            <button type="button" className="btn primary wide" onClick={allowNotifications}>
-              เปิดแจ้งเตือน
-            </button>
-          ) : (
-            <p className="note">เครื่องนี้ยังไม่รองรับการแจ้งเตือนค่ะ</p>
+        <>
+          <h2>แจ้งเตือนฝน</h2>
+          <p className="lede">
+            เตือนตอนเช้าว่าวันนี้ฝนตกตอนไหน เตือนล่วงหน้า 1-3 ชั่วโมง และก่อนฝนตก 30 นาที ไม่ต้องเปิดแอปค่ะ
+          </p>
+          {note && (
+            <p className="note" role="status" style={{ textAlign: "center" }}>
+              {note}
+            </p>
           )}
-          {note && <p className="note" role="status">{note}</p>}
-          <button type="button" className="btn wide" onClick={next}>
-            ข้ามไปก่อน
-          </button>
-        </section>
+          <div className="onboard-actions">
+            {pushSupported() ? (
+              <button type="button" className="btn primary wide" onClick={allowNotifications}>
+                เปิดแจ้งเตือน
+              </button>
+            ) : (
+              <p className="note" style={{ textAlign: "center" }}>
+                เครื่องนี้ยังไม่รองรับการแจ้งเตือนค่ะ
+              </p>
+            )}
+            <button type="button" className="btn wide" onClick={next}>
+              ข้ามไปก่อน
+            </button>
+          </div>
+        </>
       )}
 
       {step === 3 && (
-        <section className="card stack">
-          <h2>3. วางไว้บนหน้าจอหลัก</h2>
-          <p className="note">จะได้กดเปิดจากหน้าจอโทรศัพท์ได้เลย เหมือนแอปทั่วไปค่ะ</p>
-          {installEvent ? (
-            <button
-              type="button"
-              className="btn primary wide"
-              onClick={async () => {
-                await installEvent.prompt();
-                setInstallEvent(null);
-              }}
-            >
-              ติดตั้งแอปเช็คฝน
-            </button>
-          ) : (
-            <p className="note">
+        <>
+          <h2>วางไว้บนหน้าจอหลัก</h2>
+          <p className="lede">จะได้กดเปิดจากหน้าจอโทรศัพท์ได้เลย เหมือนแอปทั่วไปค่ะ</p>
+          {!installEvent && (
+            <p className="note" style={{ textAlign: "center" }}>
               กดปุ่มจุดสามจุดมุมขวาบนของ Chrome แล้วเลือก "เพิ่มลงในหน้าจอหลัก" หรือ "ติดตั้งแอป" ค่ะ
             </p>
           )}
-          <button type="button" className="btn primary wide" onClick={() => update({ setupDone: true })}>
-            เสร็จแล้ว เริ่มใช้งาน
-          </button>
-        </section>
+          <div className="onboard-actions">
+            {installEvent && (
+              <button
+                type="button"
+                className="btn wide"
+                onClick={async () => {
+                  await installEvent.prompt();
+                  setInstallEvent(null);
+                }}
+              >
+                ติดตั้งแอปเช็คฝน
+              </button>
+            )}
+            <button type="button" className="btn primary wide" onClick={() => update({ setupDone: true })}>
+              เสร็จแล้ว เริ่มใช้งาน
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

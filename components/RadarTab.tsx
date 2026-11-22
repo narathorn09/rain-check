@@ -4,6 +4,7 @@ import "leaflet/dist/leaflet.css";
 import { useEffect, useRef, useState } from "react";
 import type { Map as LMap, TileLayer } from "leaflet";
 import type { Place } from "@/lib/types";
+import { PauseIcon, PlayIcon } from "./Icons";
 
 interface Frame {
   time: number;
@@ -97,27 +98,38 @@ export function RadarTab({ place }: { place: Place }) {
 
   if (failed) {
     return (
-      <div className="card">
-        <p className="big">เปิดแผนที่เรดาร์ไม่ได้ในตอนนี้</p>
-        <p className="note">ลองใหม่อีกครั้งภายหลังนะคะ</p>
+      <div className="list">
+        <div className="list-row block">
+          <p className="big">เปิดแผนที่เรดาร์ไม่ได้ในตอนนี้</p>
+          <p className="note">ลองใหม่อีกครั้งภายหลังนะคะ</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="stack">
-      <div className="card compact">
-        <p className="big">เมฆฝนย้อนหลัง 1-2 ชั่วโมง</p>
-        <p className="note">สีน้ำเงิน-เขียว-เหลือง-แดง คือฝนเบาไปหนัก จุดแดงคือที่ของคุณ</p>
-      </div>
       <div ref={box} className="map" role="img" aria-label="แผนที่เรดาร์ฝน" />
-      <div className="card compact">
-        <p className="big">
-          {frame ? `ภาพเวลา ${clockText} น. (ผ่านมา ${agoMin} นาที)` : "กำลังโหลดภาพ…"}
-        </p>
-        <button type="button" className="btn primary wide" onClick={() => setPlaying((p) => !p)} disabled={frames.length === 0}>
-          {playing ? "หยุดภาพเคลื่อนไหว" : "เล่นภาพเคลื่อนไหว"}
-        </button>
+      <div className="list">
+        <div className="list-row player">
+          <button
+            type="button"
+            className="play"
+            onClick={() => setPlaying((p) => !p)}
+            disabled={frames.length === 0}
+            aria-label={playing ? "หยุดภาพเคลื่อนไหว" : "เล่นภาพเคลื่อนไหว"}
+          >
+            {playing ? <PauseIcon /> : <PlayIcon />}
+          </button>
+          <div className="row-main">
+            <p className="row-title">{frame ? `ภาพเวลา ${clockText} น.` : "กำลังโหลดภาพ…"}</p>
+            {frame && <p className="row-sub">ผ่านมา {agoMin} นาที</p>}
+          </div>
+        </div>
+        <div className="list-row block">
+          <p className="row-title">วิธีดู</p>
+          <p className="row-sub">เมฆฝนย้อนหลัง 1-2 ชั่วโมง สีน้ำเงิน-เขียว-เหลือง-แดง คือฝนเบาไปหนัก จุดแดงคือที่ของคุณ</p>
+        </div>
       </div>
     </div>
   );

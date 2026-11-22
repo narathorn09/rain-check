@@ -1,5 +1,5 @@
 import { DAY_HOURS, minutesToRain, slotsInWindow, summarize } from "./rain";
-import { clock, type BangkokNow } from "./time";
+import { addDays, clock, thaiHour, type BangkokNow } from "./time";
 import type { Forecast, Place } from "./types";
 
 // Fixed templates keep alerts predictable and free; only the chat tab uses the model.
@@ -22,6 +22,42 @@ export function alertMessage(f: Forecast, now: BangkokNow, place: Place) {
     title: "เช็คฝน: ฝนใกล้ตก",
     body: `อีกประมาณ ${rounded} นาทีฝนจะตกที่${place.name} เก็บของหรือหาที่หลบได้เลยค่ะ`,
     tag: "alert",
+  };
+}
+
+/** How far ahead the hourly forecast is trusted enough to warn about. */
+export const ADVANCE_HOURS = 3;
+/** An early warning must give at least this much notice; closer rain gets the 30-minute alert. */
+export const MIN_ADVANCE_MIN = 60;
+
+/**
+ * Early warning from the hourly forecast: rain starts in MIN_ADVANCE_MIN..ADVANCE_HOURS.
+ * `key` identifies the rain spell so the cron sends one warning per spell.
+ * Returns null when it is raining now or no rain is coming in that range.
+ */
+export function advanceMessage(f: Forecast, now: BangkokNow, place: Place) {
+  if (now.hour < DAY_HOURS.start || now.hour >= DAY_HOURS.end) return null;
+  if (minutesToRain(f.minutely, now) === 0) return null;
+
+  const tomorrow = addDays(now.date, 1);
+  const startOf = (date: string, hour: number) => hour * 60 + (date === tomorrow ? 24 * 60 : 0);
+  const next = f.slots.find((s) => {
+    if (s.level === "dry" || (s.date !== now.date && s.date !== tomorrow)) return false;
+    const ahead = startOf(s.date, s.hour) - now.minutesOfDay;
+    return ahead > 0 && ahead <= ADVANCE_HOURS * 60;
+  });
+  if (!next) return null;
+
+  const ahead = startOf(next.date, next.hour) - now.minutesOfDay;
+  if (ahead < MIN_ADVANCE_MIN) return null;
+  // Round down so the message never promises more time than there is.
+  const hours = Math.floor(ahead / 60);
+  const kind = next.level === "heavy" ? "ฝนตกหนัก" : "ฝนจะตก";
+  return {
+    key: `${next.date}T${String(next.hour).padStart(2, "0")}`,
+    title: "เช็คฝน: เตือนล่วงหน้า",
+    body: `อีกประมาณ ${hours} ชั่วโมง${kind}ที่${place.name} (ราว${thaiHour(next.hour)}) เตรียมร่มไว้นะคะ`,
+    tag: "advance",
   };
 }
 

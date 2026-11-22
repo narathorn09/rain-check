@@ -17,7 +17,8 @@ const MODELS = [
 // The next model is tried only for model-side problems: not found, quota, server error or overload.
 // 400/401/403 mean our request or key is wrong, and another model would fail the same way.
 const FALLBACK_STATUSES = new Set([404, 429, 500, 503, 504]);
-const REQUEST_TIMEOUT_MS = 9_000;
+// The SDK forwards this as a server deadline, and Gemini rejects anything under 10s with a 400.
+const REQUEST_TIMEOUT_MS = 12_000;
 const TOTAL_TIMEOUT_MS = 25_000;
 const MAX_TURNS = 10;
 const MAX_CHARS = 500;
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
 - เวลาตอนนี้ (ไทย): ${clock(now.minutesOfDay)} น. (${thaiHour(now.hour)})
 - สถานที่: ${String(body?.place?.name ?? "ตำแหน่งของผู้ใช้").slice(0, 60)}
 
-พยากรณ์รายชั่วโมงตั้งแต่ตอนนี้ (ระดับ: แล้ง = ไม่มีฝน, ฝนเบา, ฝนตกหนัก):
+พยากรณ์รายชั่วโมงตั้งแต่ตอนนี้ (ระดับ: อากาศดี = ไม่มีฝน, ฝนเบา, ฝนตกหนัก):
 ${forecastForPrompt(forecast, now)}`;
 
     // The SDK retries up to 5 times with backoff by default, which can outlast maxDuration.

@@ -41,7 +41,12 @@ export async function PUT(req: NextRequest) {
   if (!device) return NextResponse.json({ error: "invalid body" }, { status: 400 });
   const prev = await getDevice(device.id);
   // Keep send history so editing settings does not trigger a duplicate alert.
-  await saveDevice({ ...device, lastMorning: prev?.lastMorning, lastAlert: prev?.lastAlert });
+  await saveDevice({
+    ...device,
+    lastMorning: prev?.lastMorning,
+    lastAlert: prev?.lastAlert,
+    lastAdvance: prev?.lastAdvance,
+  });
   return NextResponse.json({ ok: true });
 }
 

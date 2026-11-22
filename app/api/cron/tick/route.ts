@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { alertMessage, morningMessage } from "@/lib/messages";
+import { advanceMessage, alertMessage, morningMessage } from "@/lib/messages";
 import { DAY_HOURS } from "@/lib/rain";
 import { sendNotice } from "@/lib/push";
 import { listDevices, saveDevice } from "@/lib/store";
@@ -40,7 +40,9 @@ export async function GET(req: NextRequest) {
         now.minutesOfDay < d.morningMinutes + MORNING_GRACE_MIN;
       const inDay = now.hour >= DAY_HOURS.start && now.hour < DAY_HOURS.end;
       const dueAlert = d.alert && inDay && Date.now() - (d.lastAlert ?? 0) > ALERT_COOLDOWN_MS;
-      if (!dueMorning && !dueAlert) continue;
+      // The hours-ahead warning has its own once-per-spell guard, so no cooldown here.
+      const dueAdvance = d.alert && inDay;
+      if (!dueMorning && !dueAlert && !dueAdvance) continue;
 
       const f = await forecastFor(d);
       let next = d;
@@ -49,6 +51,15 @@ export async function GET(req: NextRequest) {
         next = { ...next, lastMorning: now.date };
         await saveDevice(next);
         if (await sendNotice(d, morningMessage(f, now, d.place))) sent++;
+      }
+      if (dueAdvance) {
+        const adv = advanceMessage(f, now, d.place);
+        if (adv && adv.key !== d.lastAdvance) {
+          next = { ...next, lastAdvance: adv.key };
+          await saveDevice(next);
+          const { key: _key, ...notice } = adv;
+          if (await sendNotice(d, notice)) sent++;
+        }
       }
       if (dueAlert) {
         const msg = alertMessage(f, now, d.place);

@@ -47,4 +47,6 @@ export interface DeviceRecord {
   alert: boolean;
   lastMorning?: string;
   lastAlert?: number;
+  /** Rain spell (date + start hour) that already got an hours-ahead warning. */
+  lastAdvance?: string;
 }

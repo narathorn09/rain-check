@@ -2,7 +2,7 @@ import type { Forecast, HourRange, Level, Minutely, Slot } from "./types";
 import { thaiHour, type BangkokNow } from "./time";
 
 export const LEVEL_LABEL: Record<Level, string> = {
-  dry: "แล้ง",
+  dry: "อากาศดี",
   light: "ฝนเบา",
   heavy: "ฝนตกหนัก",
 };

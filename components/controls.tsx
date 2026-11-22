@@ -4,6 +4,7 @@ import { useState } from "react";
 import { getPosition, type GeoError } from "@/lib/client/geo";
 import { clock } from "@/lib/time";
 import type { Place } from "@/lib/types";
+import { PinIcon } from "./Icons";
 
 /** Large +/- control; avoids small wheel pickers that are hard to use. */
 export function Stepper({
@@ -50,24 +51,31 @@ export function MorningTimeEditor({ minutes, onChange }: { minutes: number; onCh
   );
 }
 
-export function Switch({
+/** Settings-list row with a chat-app style toggle; the whole row is the tap target. */
+export function SwitchRow({
   checked,
   onChange,
   title,
   hint,
+  icon,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   title: string;
   hint: string;
+  icon: React.ReactNode;
 }) {
   return (
-    <button type="button" className="switch-row" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}>
-      <span>
-        <span className="switch-title">{title}</span>
-        <span className="switch-hint">{hint}</span>
+    <button type="button" className="list-row" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}>
+      <span className="lead">{icon}</span>
+      <span className="row-main">
+        <span className="row-title" style={{ display: "block" }}>{title}</span>
+        <span className="row-sub" style={{ display: "block" }}>{hint}</span>
       </span>
-      <span className={`switch ${checked ? "on" : ""}`}>{checked ? "เปิด" : "ปิด"}</span>
+      <span className={`toggle ${checked ? "on" : ""}`}>
+        {checked ? "เปิด" : "ปิด"}
+        <i aria-hidden="true" />
+      </span>
     </button>
   );
 }
@@ -127,7 +135,7 @@ export function PlacePicker({ onPick }: { onPick: (p: Place) => void }) {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="หรือพิมพ์ชื่ออำเภอ / จังหวัด"
+          placeholder="ชื่ออำเภอ หรือ จังหวัด"
           aria-label="ค้นหาสถานที่"
           enterKeyHint="search"
         />
@@ -136,17 +144,26 @@ export function PlacePicker({ onPick }: { onPick: (p: Place) => void }) {
         </button>
       </form>
       {msg && <p className="note">{msg}</p>}
-      {hits?.map((h) => (
-        <button
-          key={`${h.lat},${h.lon}`}
-          type="button"
-          className="btn hit"
-          onClick={() => onPick({ name: h.name, lat: h.lat, lon: h.lon })}
-        >
-          <strong>{h.name}</strong>
-          <span>{h.detail}</span>
-        </button>
-      ))}
+      {hits && hits.length > 0 && (
+        <div className="list" style={{ border: "1px solid var(--line)" }}>
+          {hits.map((h) => (
+            <button
+              key={`${h.lat},${h.lon}`}
+              type="button"
+              className="list-row"
+              onClick={() => onPick({ name: h.name, lat: h.lat, lon: h.lon })}
+            >
+              <span className="lead">
+                <PinIcon />
+              </span>
+              <span className="row-main">
+                <span className="row-title" style={{ display: "block" }}>{h.name}</span>
+                <span className="row-sub" style={{ display: "block" }}>{h.detail}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

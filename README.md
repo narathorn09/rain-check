@@ -27,6 +27,7 @@ Generate VAPID keys with `npx web-push generate-vapid-keys`.
 ## Notes
 
 - Push alerts use the single saved place, not live GPS, and only cover 05:00-21:00 (`DAY_HOURS` in `lib/rain.ts`).
+- With "เตือนก่อนฝนตก" on, a device gets an hours-ahead warning (rain starting in 1-3 hours, once per rain spell) and a second alert about 30 minutes before rain.
 - Alert and morning texts are fixed templates; only the chat tab calls Gemini.
 - Chat tries `GEMINI_MODEL`, then each model in `GEMINI_FALLBACK_MODELS` (comma-separated, default ends with `gemini-3.5-flash-lite`). It moves on for 404/429/500/503/504 only; 400/401/403 fail at once because another model would fail the same way.
 - Do not send `temperature`, `top_p` or `top_k`: Gemini 3.x deprecates them and newer models return 400.
