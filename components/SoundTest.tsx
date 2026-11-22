@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { PcmTimeline, STREAM_RATE, primeAudio, stopPcm } from "@/lib/client/pcmPlayer";
 import { pcmToWav } from "@/lib/wav";
+import { CALL_MIC, CALL_MIC_PROCESSED } from "@/lib/client/mic";
 
 // One sentence of น้องฝน's real voice, fetched once and replayed through each path.
 const SAMPLE_TEXT = "สวัสดีค่ะ น้องฝนกำลังทดสอบเสียงอยู่นะคะ วันนี้อากาศดี ไม่มีฝนค่ะ";
 
-type Path = "tone" | "native" | "app" | "plain" | "stream" | "streamMic";
+type Path = "tone" | "native" | "app" | "plain" | "stream" | "streamMic" | "streamMicOld";
 
 const PATHS: { id: Path; letter: string; label: string; detail: string }[] = [
   { id: "tone", letter: "A", label: "เสียงหึ่งทดสอบ", detail: "เสียงสังเคราะห์ล้วน ผ่านตัวเล่นของแอป" },
@@ -15,7 +16,8 @@ const PATHS: { id: Path; letter: string; label: string; detail: string }[] = [
   { id: "app", letter: "C", label: "เสียงน้องฝน (ตัวเล่นของแอป)", detail: "เสียงที่โหลดไว้ครบแล้ว" },
   { id: "plain", letter: "D", label: "เสียงน้องฝน (Web Audio พื้นฐาน)", detail: "ไม่ผ่านตัวกรองและตัวกำจัดคลิก" },
   { id: "stream", letter: "E", label: "เสียงน้องฝน (สตรีมสด)", detail: "เล่นไปโหลดไป แบบตอนอ่านคำตอบในแชต" },
-  { id: "streamMic", letter: "F", label: "สตรีมสด + เปิดไมค์", detail: "แบบตอนโทรคุย (ขออนุญาตใช้ไมค์)" },
+  { id: "streamMic", letter: "F", label: "สตรีมสด + เปิดไมค์ (แบบใหม่)", detail: "แบบตอนโทรคุยตอนนี้ ปิดตัวตัดเสียงสะท้อนของมือถือ" },
+  { id: "streamMicOld", letter: "G", label: "สตรีมสด + เปิดไมค์ (แบบเก่า)", detail: "เปิดตัวตัดเสียงสะท้อนของมือถือ ไว้เทียบกับ F" },
 ];
 
 /** 3 s of a soft 440 Hz tone as 16-bit PCM, to test playback without any speech. */
@@ -141,12 +143,11 @@ export function SoundTest() {
         return;
       }
 
-      if (path === "stream" || path === "streamMic") {
+      if (path === "stream" || path === "streamMic" || path === "streamMicOld") {
         let mic: MediaStream | null = null;
-        if (path === "streamMic") {
-          // Same constraints as a voice call: Android may switch to its call audio mode here.
+        if (path !== "stream") {
           mic = await navigator.mediaDevices.getUserMedia({
-            audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            audio: path === "streamMic" ? CALL_MIC : CALL_MIC_PROCESSED,
           });
           micRef.current = mic;
           note(`${letter}: เปิดไมค์แล้ว · ระบบเสียง ${ctx?.state ?? "-"}`);

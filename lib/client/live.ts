@@ -3,6 +3,7 @@
 import { GoogleGenAI, Modality, type LiveServerMessage, type Session } from "@google/genai";
 import type { Profile } from "../profile";
 import type { Place } from "../types";
+import { CALL_MIC } from "./mic";
 import { PcmTimeline, STREAM_RATE, primeAudio, stopPcm } from "./pcmPlayer";
 
 export type CallState = "connecting" | "listening" | "speaking" | "ended" | "error";
@@ -19,7 +20,8 @@ export interface CallEvents {
 const MIC_RATE = 16000;
 const SEND_SAMPLES = MIC_RATE / 10;
 // Keep the mic closed a moment after น้องฝน stops, so the tail of her voice is not heard back.
-const ECHO_TAIL_MS = 350;
+// Longer than before because the phone's own echo cancellation is off (see CALL_MIC).
+const ECHO_TAIL_MS = 500;
 
 // Captures mic frames off the main thread and hands them to the page.
 const WORKLET = `
@@ -94,9 +96,7 @@ export class VoiceCall {
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("no-mic");
       this.stream = await navigator.mediaDevices
-        .getUserMedia({
-          audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        })
+        .getUserMedia({ audio: CALL_MIC })
         .catch(() => {
           throw new Error("mic-denied");
         });
