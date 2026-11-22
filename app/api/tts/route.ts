@@ -28,8 +28,14 @@ export async function POST(req: NextRequest) {
 
   const ai = new GoogleGenAI({
     apiKey,
-    // Gemini rejects deadlines under 10s; one attempt per model, then the next model.
-    httpOptions: { timeout: 12_000, retryOptions: { attempts: 1 } },
+    httpOptions: {
+      // The SDK defaults to the v1 API, which rejects speechConfig and speechMetadata
+      // ("Cannot find field"); speech generation lives in v1beta.
+      apiVersion: "v1beta",
+      // Gemini rejects deadlines under 10s; one attempt per model, then the next model.
+      timeout: 12_000,
+      retryOptions: { attempts: 1 },
+    },
   });
   const abortSignal = AbortSignal.timeout(25_000);
 
