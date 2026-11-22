@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { disablePush, enablePush, pushSupported, sendTest, syncDevice } from "@/lib/client/push";
+import {
+  disablePush,
+  enablePush,
+  localTestNotification,
+  pushSupported,
+  sendTest,
+  syncDevice,
+  type LocalTestResult,
+} from "@/lib/client/push";
 import type { Settings } from "@/lib/client/settings";
 import { MorningTimeEditor, PlacePicker, SwitchRow } from "./controls";
 import { BackIcon, BellIcon, ChevronIcon, PinIcon, UmbrellaIcon } from "./Icons";
@@ -44,7 +52,22 @@ export function SettingsView({
   }
 
   async function test() {
-    setNote((await sendTest(settings.deviceId)) ? "ส่งข้อความทดสอบแล้ว รอสักครู่นะคะ" : "ส่งไม่สำเร็จ ลองเปิดแจ้งเตือนใหม่อีกครั้งค่ะ");
+    setNote(
+      (await sendTest(settings.deviceId))
+        ? "ส่งจากเซิร์ฟเวอร์แล้ว ถ้าไม่เด้งภายใน 1 นาที ลองกด \"ทดสอบบนเครื่องนี้\" ค่ะ"
+        : "ส่งไม่สำเร็จ ลองเปิดแจ้งเตือนใหม่อีกครั้งค่ะ",
+    );
+  }
+
+  async function testHere() {
+    const r = await localTestNotification();
+    const notes: Record<LocalTestResult, string> = {
+      ok: "แสดงแจ้งเตือนบนเครื่องแล้ว ถ้ามองไม่เห็น แปลว่าตั้งค่าของมือถือปิดแจ้งเตือนไว้ ไปที่ ตั้งค่าเครื่อง > แอป > Chrome (หรือ เช็คฝน) > การแจ้งเตือน แล้วเปิดค่ะ",
+      "no-permission": "ยังไม่ได้อนุญาตแจ้งเตือน กด \"เปิดการแจ้งเตือน\" ก่อนค่ะ",
+      unsupported: "เครื่องหรือเบราว์เซอร์นี้ยังไม่รองรับการแจ้งเตือนค่ะ",
+      error: "แสดงแจ้งเตือนไม่ได้ ลองปิดแอปแล้วเปิดใหม่อีกครั้งค่ะ",
+    };
+    setNote(notes[r]);
   }
 
   return (
@@ -107,9 +130,19 @@ export function SettingsView({
               title="เตือนก่อนฝนตก"
               hint="เตือนล่วงหน้า 1-3 ชั่วโมง และอีกครั้งก่อนตก 30 นาที (ตี 5 ถึง 3 ทุ่ม)"
             />
+            <button type="button" className="list-row" onClick={testHere}>
+              <span className="row-main">
+                <span className="row-title" style={{ display: "block" }}>ทดสอบบนเครื่องนี้</span>
+                <span className="row-sub" style={{ display: "block" }}>มือถือแสดงแจ้งเตือนเอง ไม่ผ่านอินเทอร์เน็ต</span>
+              </span>
+              <span className="trail">
+                <ChevronIcon />
+              </span>
+            </button>
             <button type="button" className="list-row" onClick={test}>
               <span className="row-main">
-                <span className="row-title" style={{ display: "block" }}>ส่งข้อความทดสอบ</span>
+                <span className="row-title" style={{ display: "block" }}>ทดสอบผ่านเซิร์ฟเวอร์</span>
+                <span className="row-sub" style={{ display: "block" }}>เหมือนแจ้งเตือนฝนจริง</span>
               </span>
               <span className="trail">
                 <ChevronIcon />

@@ -72,6 +72,29 @@ export async function syncDevice(s: Settings): Promise<boolean> {
   return res.ok;
 }
 
+export type LocalTestResult = "ok" | "no-permission" | "unsupported" | "error";
+
+/**
+ * Shows a notification straight from this phone's service worker, with no server or push
+ * service involved. If this one does not appear, the phone's own settings are blocking it.
+ */
+export async function localTestNotification(): Promise<LocalTestResult> {
+  if (!pushSupported()) return "unsupported";
+  if (Notification.permission !== "granted") return "no-permission";
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    await reg.showNotification("เช็คฝน (ทดสอบบนเครื่องนี้)", {
+      body: "ถ้าเห็นข้อความนี้ แปลว่ามือถือแสดงแจ้งเตือนได้ปกติค่ะ",
+      icon: "/icon-192",
+      badge: "/icon-192",
+      tag: "local-test",
+    });
+    return "ok";
+  } catch {
+    return "error";
+  }
+}
+
 export async function sendTest(deviceId: string): Promise<boolean> {
   const res = await fetch("/api/push", {
     method: "POST",
