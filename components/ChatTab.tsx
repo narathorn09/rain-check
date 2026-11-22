@@ -58,6 +58,11 @@ export function ChatTab({ place, profile }: { place: Place; profile: Profile }) 
   const [noThaiVoice, setNoThaiVoice] = useState(false);
   const recRef = useRef<Recognition | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Tapping a button would blur the input first; the keyboard then closes and the layout
+  // jumps before the tap lands, so the button needed a second tap. Keep focus instead.
+  const keepFocus = (e: React.MouseEvent) => e.preventDefault();
   // Mirrors `speaking` so async speech callbacks see the latest value, not a stale closure.
   const speakingRef = useRef<number | null>(null);
 
@@ -76,6 +81,8 @@ export function ChatTab({ place, profile }: { place: Place; profile: Profile }) 
     const next: Msg[] = [...msgs, { role: "user", text: q, at: Date.now() }];
     setMsgs(next);
     setText("");
+    // Close the keyboard once the question is sent so the answer has the whole screen.
+    inputRef.current?.blur();
     setBusy(true);
     try {
       const res = await fetch("/api/chat", {
@@ -180,7 +187,7 @@ export function ChatTab({ place, profile }: { place: Place; profile: Profile }) 
 
         <div className="pills" aria-label="คำถามที่ถามบ่อย">
           {QUICK.map((q) => (
-            <button key={q} type="button" className="pill" onClick={() => ask(q)} disabled={busy}>
+            <button key={q} type="button" className="pill" onMouseDown={keepFocus} onClick={() => ask(q)} disabled={busy}>
               {q}
             </button>
           ))}
@@ -194,18 +201,25 @@ export function ChatTab({ place, profile }: { place: Place; profile: Profile }) 
           }}
         >
           {hasMic && (
-            <button type="button" className={`mic ${listening ? "live" : ""}`} onClick={toggleMic} aria-label="พูดถามน้องฝน">
+            <button
+              type="button"
+              className={`mic ${listening ? "live" : ""}`}
+              onMouseDown={keepFocus}
+              onClick={toggleMic}
+              aria-label="พูดถามน้องฝน"
+            >
               <MicIcon />
             </button>
           )}
           <input
+            ref={inputRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder={listening ? "พูดได้เลยค่ะ…" : "พิมพ์คำถาม"}
             aria-label="พิมพ์คำถาม"
             enterKeyHint="send"
           />
-          <button type="submit" className="send" disabled={busy || !text.trim()}>
+          <button type="submit" className="send" onMouseDown={keepFocus} disabled={busy || !text.trim()}>
             ส่ง
           </button>
         </form>

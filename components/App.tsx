@@ -145,10 +145,12 @@ export function App() {
             </div>
           )}
         </div>
-        <button type="button" className="icon-btn" onClick={() => setShowSettings(true)}>
-          <GearIcon />
-          ตั้งค่า
-        </button>
+        {tab === "rain" && (
+          <button type="button" className="icon-btn" onClick={() => setShowSettings(true)}>
+            <GearIcon />
+            ตั้งค่า
+          </button>
+        )}
       </header>
 
       <section className="content">
