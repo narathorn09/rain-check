@@ -166,6 +166,7 @@ button.list-row:active { background: var(--bg); }
 .time { flex: none; font-size: 0.75rem; color: #1d2c3d; padding-bottom: 4px; }
 .listen { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; min-height: 44px; padding: 4px 16px; border-radius: 999px; border: 2px solid var(--brand); background: #fff; color: var(--brand); font-weight: 700; font-size: 0.9rem; }
 .listen.on { background: var(--brand); color: #fff; }
+.listen.wake { background: #b45f00; border-color: #b45f00; color: #fff; animation: pulse 1.2s infinite; }
 .typing { display: inline-flex; gap: 5px; padding: 6px 2px; }
 .typing span { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #8a9199; animation: typing 1s infinite ease-in-out; }
 .typing span:nth-child(2) { animation-delay: 0.15s; }

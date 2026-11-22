@@ -5,8 +5,8 @@ import type { Profile } from "@/lib/profile";
 import type { Place } from "@/lib/types";
 import { Avatar } from "./Avatar";
 import { MicIcon, SpeakerIcon } from "./Icons";
-import { primeAudio } from "@/lib/client/pcmPlayer";
-import { speak as speakAloud, stopSpeaking } from "@/lib/client/speech";
+import { primeAudio, resumeAudio } from "@/lib/client/pcmPlayer";
+import { speak as speakAloud, startSpeech, stopSpeaking, type SpeechSession } from "@/lib/client/speech";
 
 interface Msg {
   role: "user" | "model";
@@ -60,6 +60,8 @@ export function ChatTab({ place, profile }: { place: Place; profile: Profile }) 
   const [speaking, setSpeaking] = useState<number | null>(null);
   const [hasMic, setHasMic] = useState(false);
   const [noThaiVoice, setNoThaiVoice] = useState(false);
+  // Message whose audio is queued but held back because the phone paused audio.
+  const [muted, setMuted] = useState<number | null>(null);
   const recRef = useRef<Recognition | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -91,26 +93,67 @@ export function ChatTab({ place, profile }: { place: Place; profile: Profile }) 
     // Close the keyboard once the question is sent so the answer has the whole screen.
     inputRef.current?.blur();
     setBusy(true);
+    const index = next.length;
+    let session: SpeechSession | null = null;
+    let answer = "";
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: next.map(({ role, text }) => ({ role, text })), place, profile }),
       });
-      const data = (await res.json()) as { text?: string };
-      if (!res.ok || !data.text) throw new Error();
-      setMsgs([...next, { role: "model", text: data.text, at: Date.now() }]);
-      speak(data.text, next.length);
+      // Errors come back as JSON; a good answer streams in as plain text.
+      if (!res.ok || !res.body || res.headers.get("content-type")?.includes("json")) throw new Error();
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      const at = Date.now();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const delta = decoder.decode(value, { stream: true });
+        if (!delta) continue;
+        if (!answer) {
+          // First words: show the bubble and start reading aloud right away.
+          setBusy(false);
+          speakingRef.current = index;
+          setSpeaking(index);
+          session = startSpeech(
+            () => {
+              if (speakingRef.current === index) {
+                speakingRef.current = null;
+                setSpeaking(null);
+              }
+              setMuted((m) => (m === index ? null : m));
+            },
+            () => setMuted(index),
+          );
+          session.result.then((r) => r === "no-thai-voice" && setNoThaiVoice(true));
+        }
+        answer += delta;
+        session?.add(delta);
+        setMsgs([...next, { role: "model", text: answer, at }]);
+      }
+      if (!answer.trim()) throw new Error();
+      session?.end();
     } catch {
-      setMsgs([
-        ...next,
-        { role: "model", text: "ขอโทษค่ะ น้องฝนตอบไม่ได้ในตอนนี้ ลองถามใหม่อีกครั้งนะคะ", at: Date.now(), failed: true },
-      ]);
+      session?.end();
+      if (!answer.trim()) {
+        setMsgs([
+          ...next,
+          { role: "model", text: "ขอโทษค่ะ น้องฝนตอบไม่ได้ในตอนนี้ ลองถามใหม่อีกครั้งนะคะ", at: Date.now(), failed: true },
+        ]);
+      }
     }
     setBusy(false);
   }
 
   async function speak(t: string, index: number) {
+    if (muted === index) {
+      // The audio is already queued; a tap is all the phone needs to let it play.
+      resumeAudio();
+      setMuted(null);
+      return;
+    }
     if (speakingRef.current === index) {
       stopSpeaking();
       speakingRef.current = null;
@@ -119,13 +162,18 @@ export function ChatTab({ place, profile }: { place: Place; profile: Profile }) 
     }
     speakingRef.current = index;
     setSpeaking(index);
-    const result = await speakAloud(t, () => {
-      // Only the reading that is still current may clear the button state.
-      if (speakingRef.current === index) {
-        speakingRef.current = null;
-        setSpeaking(null);
-      }
-    });
+    const result = await speakAloud(
+      t,
+      () => {
+        // Only the reading that is still current may clear the button state.
+        if (speakingRef.current === index) {
+          speakingRef.current = null;
+          setSpeaking(null);
+        }
+        setMuted((m) => (m === index ? null : m));
+      },
+      () => setMuted(index),
+    );
     if (result === "no-thai-voice") setNoThaiVoice(true);
   }
 
@@ -155,6 +203,8 @@ export function ChatTab({ place, profile }: { place: Place; profile: Profile }) 
     };
     r.onend = () => {
       setListening(false);
+      // The microphone held the audio focus; take it back so the answer can be heard.
+      resumeAudio();
       // Some browsers stop without marking the last result final; send what was heard.
       send();
     };
@@ -179,9 +229,13 @@ export function ChatTab({ place, profile }: { place: Place; profile: Profile }) 
           ) : (
             <ModelBubble key={i} text={m.text} at={m.at}>
               {!m.failed && (
-                <button type="button" className={`listen ${speaking === i ? "on" : ""}`} onClick={() => speak(m.text, i)}>
+                <button
+                  type="button"
+                  className={`listen ${muted === i ? "wake" : speaking === i ? "on" : ""}`}
+                  onClick={() => speak(m.text, i)}
+                >
                   <SpeakerIcon />
-                  {speaking === i ? "หยุดอ่าน" : "ฟังคำตอบ"}
+                  {muted === i ? "แตะเพื่อฟังเสียง" : speaking === i ? "หยุดอ่าน" : "ฟังคำตอบ"}
                 </button>
               )}
             </ModelBubble>

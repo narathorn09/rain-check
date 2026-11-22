@@ -1,4 +1,4 @@
-import { ApiError, FinishReason, GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { ApiError, FinishReason, GoogleGenAI, ThinkingLevel, type GenerateContentResponse } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
 import { cleanProfile } from "@/lib/profile";
 import { forecastForPrompt } from "@/lib/rain";
@@ -92,11 +92,14 @@ ${forecastForPrompt(forecast, now)}`;
     // Hard cap below maxDuration so the user gets a clear error, not a platform 504.
     const abortSignal = AbortSignal.timeout(TOTAL_TIMEOUT_MS);
 
-    let res: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
+    // Stream the answer so the phone can show it, and start reading it aloud, sentence by
+    // sentence. A model is chosen by waiting for its first piece of text: errors surface
+    // there, before anything is sent, so a failing model can still fall back.
+    let opened: { iterator: AsyncIterator<GenerateContentResponse>; first: string } | null = null;
     let lastError: unknown;
     for (const model of MODELS) {
       try {
-        res = await ai.models.generateContent({
+        const stream = await ai.models.generateContentStream({
           model,
           contents: turns,
           // No temperature/top_p/top_k: Gemini 3.x deprecates them and newer models reject them.
@@ -110,6 +113,16 @@ ${forecastForPrompt(forecast, now)}`;
             abortSignal,
           },
         });
+        const iterator = stream[Symbol.asyncIterator]();
+        let first = "";
+        // Early chunks can carry only thinking metadata; wait for real text.
+        while (!first) {
+          const r = await iterator.next();
+          if (r.done) break;
+          first = r.value.text ?? "";
+        }
+        if (!first) throw new Error("empty answer");
+        opened = { iterator, first };
         break;
       } catch (err) {
         lastError = err;
@@ -118,13 +131,42 @@ ${forecastForPrompt(forecast, now)}`;
         if (status === undefined || !FALLBACK_STATUSES.has(status)) throw err;
       }
     }
-    if (!res) throw lastError;
-    if (res.candidates?.[0]?.finishReason === FinishReason.MAX_TOKENS) {
-      console.warn("chat: answer hit the token limit", res.usageMetadata);
-    }
-    const text = res.text?.trim();
-    if (!text) return NextResponse.json({ error: "empty answer" }, { status: 502 });
-    return NextResponse.json({ text });
+    if (!opened) throw lastError;
+
+    const { iterator } = opened;
+    const encoder = new TextEncoder();
+    let pending: string | null = opened.first;
+    const answer = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        try {
+          if (pending) {
+            controller.enqueue(encoder.encode(pending));
+            pending = null;
+            return;
+          }
+          const r = await iterator.next();
+          if (r.done) {
+            controller.close();
+            return;
+          }
+          if (r.value.candidates?.[0]?.finishReason === FinishReason.MAX_TOKENS) {
+            console.warn("chat: answer hit the token limit", r.value.usageMetadata);
+          }
+          const text = r.value.text ?? "";
+          if (text) controller.enqueue(encoder.encode(text));
+        } catch (err) {
+          // Mid-answer failure: end cleanly; the phone keeps what it already has.
+          console.error("chat stream failed", err);
+          controller.close();
+        }
+      },
+      cancel() {
+        iterator.return?.();
+      },
+    });
+    return new Response(answer, {
+      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+    });
   } catch (err) {
     console.error("chat failed", err);
     const timedOut = err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
