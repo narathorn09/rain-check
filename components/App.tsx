@@ -117,7 +117,7 @@ export function App() {
   );
 
   return (
-    <main className="shell">
+    <main className={`shell ${tab === "chat" ? "chat-mode" : ""}`}>
       <header className="appbar">
         <div className="appbar-main">
           {tab === "chat" ? (

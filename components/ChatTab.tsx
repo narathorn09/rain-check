@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { Place } from "@/lib/types";
 import { Avatar } from "./Avatar";
-import { MicIcon } from "./Icons";
-import { speakThai, speechSupported, stopSpeaking } from "@/lib/client/speech";
+import { MicIcon, SpeakerIcon } from "./Icons";
+import { speak as speakAloud, stopSpeaking } from "@/lib/client/speech";
 
 interface Msg {
   role: "user" | "model";
@@ -54,7 +54,6 @@ export function ChatTab({ place }: { place: Place }) {
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState<number | null>(null);
   const [hasMic, setHasMic] = useState(false);
-  const [canSpeak, setCanSpeak] = useState(false);
   const [noThaiVoice, setNoThaiVoice] = useState(false);
   const recRef = useRef<Recognition | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -63,7 +62,6 @@ export function ChatTab({ place }: { place: Place }) {
 
   useEffect(() => {
     setHasMic(Boolean((window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition));
-    setCanSpeak(speechSupported());
     return () => stopSpeaking();
   }, []);
 
@@ -106,7 +104,7 @@ export function ChatTab({ place }: { place: Place }) {
     }
     speakingRef.current = index;
     setSpeaking(index);
-    const result = await speakThai(t, () => {
+    const result = await speakAloud(t, () => {
       // Only the reading that is still current may clear the button state.
       if (speakingRef.current === index) {
         speakingRef.current = null;
@@ -134,9 +132,14 @@ export function ChatTab({ place }: { place: Place }) {
     r.start();
   }
 
+  // A suggestion disappears once it has been asked, by tap or by typing the same words.
+  const asked = new Set(msgs.filter((m) => m.role === "user").map((m) => m.text));
+  const remaining = QUICK.filter((q) => !asked.has(q));
+
   return (
     <div className="chat">
-      <div className="chat-log">
+      <div className="chat-log" aria-live="polite">
+        <span className="day-chip">วันนี้</span>
         <ModelBubble text={GREETING} />
         {msgs.map((m, i) =>
           m.role === "user" ? (
@@ -148,8 +151,9 @@ export function ChatTab({ place }: { place: Place }) {
             </div>
           ) : (
             <ModelBubble key={i} text={m.text} at={m.at}>
-              {!m.failed && canSpeak && (
-                <button type="button" className="btn small" onClick={() => speak(m.text, i)}>
+              {!m.failed && (
+                <button type="button" className={`listen ${speaking === i ? "on" : ""}`} onClick={() => speak(m.text, i)}>
+                  <SpeakerIcon />
                   {speaking === i ? "หยุดอ่าน" : "ฟังคำตอบ"}
                 </button>
               )}
@@ -168,43 +172,49 @@ export function ChatTab({ place }: { place: Place }) {
         <div ref={endRef} />
       </div>
 
-      {noThaiVoice && (
-        <p className="voice-note" role="status">
-          เครื่องนี้ยังไม่มีเสียงอ่านภาษาไทย เสียงอาจฟังไม่ชัด ติดตั้งได้ที่ ตั้งค่าเครื่อง &gt; ภาษา &gt; การอ่านออกเสียง
-          (Text-to-speech) แล้วดาวน์โหลดภาษาไทยค่ะ
-        </p>
-      )}
-
-      <div className="pills">
-        {QUICK.map((q) => (
-          <button key={q} type="button" className="pill" onClick={() => ask(q)} disabled={busy}>
-            {q}
-          </button>
-        ))}
-      </div>
-
-      <form
-        className="composer"
-        onSubmit={(e) => {
-          e.preventDefault();
-          ask(text);
-        }}
-      >
-        {hasMic && (
-          <button type="button" className={`mic ${listening ? "live" : ""}`} onClick={toggleMic} aria-label="พูดถามน้องฝน">
-            <MicIcon />
-          </button>
+      {/* Pinned under the scrolling messages, like a chat app's input bar. */}
+      <div className="chat-bottom">
+        {noThaiVoice && (
+          <p className="voice-note" role="status">
+            เครื่องนี้ยังไม่มีเสียงอ่านภาษาไทย เสียงอาจฟังไม่ชัด ติดตั้งได้ที่ ตั้งค่าเครื่อง &gt; ภาษา &gt; การอ่านออกเสียง
+            (Text-to-speech) แล้วดาวน์โหลดภาษาไทยค่ะ
+          </p>
         )}
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={listening ? "พูดได้เลยค่ะ…" : "พิมพ์คำถาม"}
-          aria-label="พิมพ์คำถาม"
-        />
-        <button type="submit" className="btn primary" disabled={busy || !text.trim()}>
-          ส่ง
-        </button>
-      </form>
+
+        {remaining.length > 0 && (
+          <div className="pills" aria-label="คำถามที่ถามบ่อย">
+            {remaining.map((q) => (
+              <button key={q} type="button" className="pill" onClick={() => ask(q)} disabled={busy}>
+                {q}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <form
+          className="composer"
+          onSubmit={(e) => {
+            e.preventDefault();
+            ask(text);
+          }}
+        >
+          {hasMic && (
+            <button type="button" className={`mic ${listening ? "live" : ""}`} onClick={toggleMic} aria-label="พูดถามน้องฝน">
+              <MicIcon />
+            </button>
+          )}
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={listening ? "พูดได้เลยค่ะ…" : "พิมพ์คำถาม"}
+            aria-label="พิมพ์คำถาม"
+            enterKeyHint="send"
+          />
+          <button type="submit" className="send" disabled={busy || !text.trim()}>
+            ส่ง
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

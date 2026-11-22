@@ -22,9 +22,59 @@ export function speechSupported(): boolean {
   return typeof window !== "undefined" && "speechSynthesis" in window;
 }
 
+let currentAudio: HTMLAudioElement | null = null;
+// Object URLs of server-made audio, so replaying an answer costs no new TTS call.
+const audioCache = new Map<string, string>();
+const MAX_CACHED = 20;
+
 export function stopSpeaking(): void {
   generation++;
+  currentAudio?.pause();
+  currentAudio = null;
   if (speechSupported()) window.speechSynthesis.cancel();
+}
+
+async function serverAudioUrl(text: string): Promise<string> {
+  const hit = audioCache.get(text);
+  if (hit) return hit;
+  const res = await fetch("/api/tts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) throw new Error(`tts ${res.status}`);
+  const url = URL.createObjectURL(await res.blob());
+  if (audioCache.size >= MAX_CACHED) {
+    const [oldText, oldUrl] = audioCache.entries().next().value as [string, string];
+    URL.revokeObjectURL(oldUrl);
+    audioCache.delete(oldText);
+  }
+  audioCache.set(text, url);
+  return url;
+}
+
+/**
+ * Reads text aloud with a Thai voice made on the server (many phones only ship an English
+ * voice, which skips Thai and reads just the digits). Falls back to the phone's own voice
+ * if the server cannot make audio. `onDone` fires when playback ends.
+ */
+export async function speak(text: string, onDone: () => void): Promise<SpeakResult> {
+  stopSpeaking();
+  const mine = generation;
+  try {
+    const url = await serverAudioUrl(text);
+    if (mine !== generation) return "ok";
+    const audio = new Audio(url);
+    currentAudio = audio;
+    audio.onended = () => onDone();
+    audio.onerror = () => onDone();
+    await audio.play();
+    return "ok";
+  } catch {
+    // A newer tap already took over; do not start the fallback voice behind it.
+    if (mine !== generation) return "ok";
+    return speakThai(text, onDone);
+  }
 }
 
 /**

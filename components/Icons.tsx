@@ -74,6 +74,13 @@ export const MicIcon = () => (
   </svg>
 );
 
+export const SpeakerIcon = () => (
+  <svg {...base} width={20} height={20}>
+    <path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" fillOpacity="0.15" />
+    <path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" />
+  </svg>
+);
+
 export const PlayIcon = () => (
   <svg {...base} fill="currentColor" stroke="none">
     <path d="M8 5v14l11-7z" />
