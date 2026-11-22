@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { getPosition, type GeoError } from "@/lib/client/geo";
-import { clock, thaiHour } from "@/lib/time";
-import type { Place, SellWindow } from "@/lib/types";
+import { clock } from "@/lib/time";
+import type { Place } from "@/lib/types";
 
 /** Large +/- control; avoids small wheel pickers that are hard to use. */
 export function Stepper({
@@ -34,29 +34,6 @@ export function Stepper({
         </button>
       </div>
     </div>
-  );
-}
-
-export function WindowEditor({ value, onChange }: { value: SellWindow; onChange: (w: SellWindow) => void }) {
-  return (
-    <>
-      <Stepper
-        label="เริ่มขายของ"
-        text={thaiHour(value.start)}
-        onMinus={() => onChange({ ...value, start: value.start - 1 })}
-        onPlus={() => onChange({ ...value, start: value.start + 1 })}
-        minusDisabled={value.start <= 0}
-        plusDisabled={value.start + 1 >= value.end}
-      />
-      <Stepper
-        label="เลิกขายของ"
-        text={thaiHour(value.end)}
-        onMinus={() => onChange({ ...value, end: value.end - 1 })}
-        onPlus={() => onChange({ ...value, end: value.end + 1 })}
-        minusDisabled={value.end - 1 <= value.start}
-        plusDisabled={value.end >= 24}
-      />
-    </>
   );
 }
 
@@ -114,7 +91,7 @@ export function PlacePicker({ onPick }: { onPick: (p: Place) => void }) {
     setMsg("");
     try {
       const fix = await getPosition();
-      onPick({ name: "จุดที่ฉันอยู่", lat: fix.lat, lon: fix.lon });
+      onPick({ name: "ที่ที่ฉันอยู่", lat: fix.lat, lon: fix.lon });
     } catch (e) {
       setMsg(
         (e as GeoError) === "denied"

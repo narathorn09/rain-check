@@ -1,46 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { LEVEL_LABEL, minutesToRain, slotsInWindow, summarize } from "@/lib/rain";
+import { LEVEL_LABEL, mergeRanges, minutesToRain, slotsInWindow, summarize } from "@/lib/rain";
 import { addDays, bangkokNow, thaiHour } from "@/lib/time";
-import type { Forecast, Level, Place, SellWindow, Slot } from "@/lib/types";
+import type { Forecast, Level, Place } from "@/lib/types";
 
 const ICON: Record<Level, string> = { dry: "☀️", light: "🌦️", heavy: "⛈️" };
 
-interface Block {
-  start: number;
-  end: number;
-  level: Level;
-  inWindow: boolean;
-}
-
-function toBlocks(slots: Slot[], win: SellWindow): Block[] {
-  const out: Block[] = [];
-  for (const s of slots) {
-    const inWindow = s.hour >= win.start && s.hour < win.end;
-    const last = out[out.length - 1];
-    if (last && last.level === s.level && last.inWindow === inWindow && last.end === s.hour) {
-      last.end = s.hour + 1;
-    } else {
-      out.push({ start: s.hour, end: s.hour + 1, level: s.level, inWindow });
-    }
-  }
-  return out;
-}
-
-/** Opens LINE's share picker with the text; falls back to the system share sheet. */
-function shareToLine(text: string) {
-  const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(text)}`;
-  if (/Android|iPhone|iPad/i.test(navigator.userAgent)) {
-    window.location.href = lineUrl;
-  } else if (navigator.share) {
-    navigator.share({ text }).catch(() => {});
-  } else {
-    window.open(lineUrl, "_blank", "noopener");
-  }
-}
-
-export function RainTab({ place, win, nowTick }: { place: Place; win: SellWindow; nowTick: number }) {
+export function RainTab({ place, nowTick }: { place: Place; nowTick: number }) {
   const [forecast, setForecast] = useState<Forecast | null>(null);
   const [error, setError] = useState(false);
   const [day, setDay] = useState<"today" | "tomorrow">("today");
@@ -82,11 +49,12 @@ export function RainTab({ place, win, nowTick }: { place: Place; win: SellWindow
   const now = bangkokNow();
   const tomorrow = addDays(now.date, 1);
 
-  const todaySlots = slotsInWindow(forecast.slots, now, win);
-  const showTomorrowSummary = todaySlots.length === 0;
-  const summary = showTomorrowSummary
-    ? summarize(slotsInWindow(forecast.slots, now, win, tomorrow), "พรุ่งนี้ช่วงขายของ")
-    : summarize(todaySlots, "ช่วงขายของวันนี้");
+  // Late in the evening nothing is left of today's daytime, so lead with tomorrow instead.
+  const todaySlots = slotsInWindow(forecast.slots, now);
+  const summary =
+    todaySlots.length === 0
+      ? summarize(slotsInWindow(forecast.slots, now, undefined, tomorrow), "พรุ่งนี้")
+      : summarize(todaySlots, "วันนี้");
 
   const m = minutesToRain(forecast.minutely, now);
   const nowLine =
@@ -98,16 +66,13 @@ export function RainTab({ place, win, nowTick }: { place: Place; win: SellWindow
 
   const date = day === "today" ? now.date : tomorrow;
   const daySlots = forecast.slots.filter((s) => s.date === date && (day === "tomorrow" || s.hour >= now.hour));
-  const blocks = toBlocks(daySlots, win);
+  const blocks = mergeRanges(daySlots);
 
   return (
     <div className="stack">
       <section className={`card hero ${summary.kind}`} aria-live="polite">
         <p className="hero-text">{summary.text}</p>
         <p className="hero-sub">{nowLine}</p>
-        <button type="button" className="btn wide" onClick={() => shareToLine(`${summary.text} (${place.name})\n${nowLine}\n— เช็คฝน`)}>
-          ส่งให้ไลน์
-        </button>
       </section>
 
       <div className="seg" role="tablist" aria-label="เลือกวัน">
@@ -122,7 +87,7 @@ export function RainTab({ place, win, nowTick }: { place: Place; win: SellWindow
       <div className="timeline">
         {blocks.length === 0 && <p className="note">หมดวันนี้แล้ว ลองดูของพรุ่งนี้นะคะ</p>}
         {blocks.map((b) => (
-          <div key={`${b.start}-${b.level}-${b.inWindow}`} className={`row ${b.level} ${b.inWindow ? "sell" : "off"}`}>
+          <div key={`${b.start}-${b.level}`} className={`row ${b.level}`}>
             <div className="row-time">
               {thaiHour(b.start)}
               <span> ถึง </span>
@@ -131,7 +96,6 @@ export function RainTab({ place, win, nowTick }: { place: Place; win: SellWindow
             <div className="row-state">
               <span aria-hidden="true">{ICON[b.level]}</span> {LEVEL_LABEL[b.level]}
             </div>
-            {b.inWindow && <div className="row-badge">ช่วงขายของ</div>}
           </div>
         ))}
       </div>

@@ -48,7 +48,7 @@ export function App() {
         const fix = await getPosition();
         if (!cancelled) setGps({ name: "ตำแหน่งตอนนี้", lat: fix.lat, lon: fix.lon });
       } catch {
-        // Falls back to the saved selling spot.
+        // Falls back to the saved place.
       }
     });
     return () => {
@@ -67,9 +67,9 @@ export function App() {
   }, []);
 
   const place = useMemo<Place | null>(() => {
-    if (!settings?.sellSpot) return null;
-    return useGps && gps ? gps : settings.sellSpot;
-  }, [settings?.sellSpot, gps, useGps]);
+    if (!settings?.place) return null;
+    return useGps && gps ? gps : settings.place;
+  }, [settings?.place, gps, useGps]);
 
   if (!settings) return <main className="shell"><p className="big center">กำลังเปิดเช็คฝน…</p></main>;
 
@@ -99,7 +99,7 @@ export function App() {
             {place.name}
             {gps && (
               <button type="button" className="link" onClick={() => setUseGps((v) => !v)}>
-                {useGps ? "ดูที่จุดขายของ" : "ดูที่ตำแหน่งตอนนี้"}
+                {useGps ? "ดูที่สถานที่ของฉัน" : "ดูที่ตำแหน่งตอนนี้"}
               </button>
             )}
           </p>
@@ -110,9 +110,9 @@ export function App() {
       </header>
 
       <section className="content">
-        {tab === "rain" && <RainTab place={place} win={settings.window} nowTick={tick} />}
+        {tab === "rain" && <RainTab place={place} nowTick={tick} />}
         {tab === "radar" && <RadarTab place={place} />}
-        {tab === "chat" && <ChatTab place={place} win={settings.window} />}
+        {tab === "chat" && <ChatTab place={place} />}
       </section>
 
       <nav className="tabs" aria-label="เมนูหลัก">

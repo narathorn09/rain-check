@@ -6,7 +6,7 @@ const font = Noto_Sans_Thai({ subsets: ["thai", "latin"], weight: ["400", "600",
 
 export const metadata: Metadata = {
   title: "เช็คฝน",
-  description: "ดูว่าฝนจะตกตอนไหน ก่อนออกไปขายของ",
+  description: "ดูว่าฝนจะตกตอนไหน ดูง่าย เข้าใจง่าย",
   applicationName: "เช็คฝน",
   appleWebApp: { capable: true, title: "เช็คฝน", statusBarStyle: "default" },
 };

@@ -57,7 +57,7 @@ describe("mergeRanges and summarize", () => {
   });
 
   it("describes rain periods in Thai", () => {
-    const s = summarize(slots, "ช่วงขายของวันนี้");
+    const s = summarize(slots, "วันนี้");
     expect(s.kind).toBe("rain");
     expect(s.text).toContain("10 โมงเช้า ถึง 11 โมงเช้า");
     expect(s.text).toContain("(ตกหนัก)");

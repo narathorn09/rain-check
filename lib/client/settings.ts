@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { Place, SellWindow } from "../types";
+import type { Place } from "../types";
 
 export interface Settings {
   deviceId: string;
-  sellSpot: Place | null;
-  window: SellWindow;
+  place: Place | null;
   morning: boolean;
   morningMinutes: number;
   alert: boolean;
@@ -18,8 +17,7 @@ const KEY = "rain-check:settings:v1";
 function fresh(): Settings {
   return {
     deviceId: crypto.randomUUID(),
-    sellSpot: null,
-    window: { start: 6, end: 14 },
+    place: null,
     morning: true,
     morningMinutes: 5 * 60 + 30,
     alert: true,
@@ -30,7 +28,14 @@ function fresh(): Settings {
 function load(): Settings {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return { ...fresh(), ...(JSON.parse(raw) as Partial<Settings>) };
+    if (raw) {
+      // Older versions stored the place as `sellSpot` next to a selling-hours `window`.
+      const { sellSpot, window: _unused, ...saved } = JSON.parse(raw) as Partial<Settings> & {
+        sellSpot?: Place | null;
+        window?: unknown;
+      };
+      return { ...fresh(), ...saved, place: saved.place ?? sellSpot ?? null };
+    }
   } catch {
     // Storage can be blocked; fall through to defaults.
   }

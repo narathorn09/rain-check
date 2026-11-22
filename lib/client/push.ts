@@ -54,7 +54,7 @@ export async function disablePush(deviceId: string): Promise<void> {
 
 /** Pushes the current settings to the server. No-op until a spot is chosen and push is on. */
 export async function syncDevice(s: Settings): Promise<boolean> {
-  if (!s.sellSpot || !pushSupported() || Notification.permission !== "granted") return false;
+  if (!s.place || !pushSupported() || Notification.permission !== "granted") return false;
   const sub = await currentSubscription();
   if (!sub) return false;
   const res = await fetch("/api/push", {
@@ -63,8 +63,7 @@ export async function syncDevice(s: Settings): Promise<boolean> {
     body: JSON.stringify({
       id: s.deviceId,
       subscription: sub.toJSON(),
-      place: s.sellSpot,
-      window: s.window,
+      place: s.place,
       morning: s.morning,
       morningMinutes: s.morningMinutes,
       alert: s.alert,

@@ -22,17 +22,13 @@ function parse(body: unknown): DeviceRecord | null {
   }
   const lat = num(b.place?.lat, -90, 90);
   const lon = num(b.place?.lon, -180, 180);
-  const start = num(b.window?.start, 0, 23);
-  const end = num(b.window?.end, 1, 24);
   const morningMinutes = num(b.morningMinutes, 0, 1439);
-  if (lat === null || lon === null || !validCoords(lat, lon)) return null;
-  if (start === null || end === null || end <= start || morningMinutes === null) return null;
+  if (lat === null || lon === null || !validCoords(lat, lon) || morningMinutes === null) return null;
 
   return {
     id: b.id,
     subscription: { endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } },
-    place: { name: String(b.place?.name ?? "จุดขายของ").slice(0, 60), lat, lon },
-    window: { start, end },
+    place: { name: String(b.place?.name ?? "สถานที่ของฉัน").slice(0, 60), lat, lon },
     morning: b.morning === true,
     morningMinutes,
     alert: b.alert === true,

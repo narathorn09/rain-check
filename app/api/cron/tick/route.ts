@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { alertMessage, morningMessage } from "@/lib/messages";
+import { DAY_HOURS } from "@/lib/rain";
 import { sendNotice } from "@/lib/push";
 import { listDevices, saveDevice } from "@/lib/store";
 import { bangkokNow } from "@/lib/time";
@@ -37,8 +38,8 @@ export async function GET(req: NextRequest) {
         d.lastMorning !== now.date &&
         now.minutesOfDay >= d.morningMinutes &&
         now.minutesOfDay < d.morningMinutes + MORNING_GRACE_MIN;
-      const inWindow = now.hour >= d.window.start && now.hour < d.window.end;
-      const dueAlert = d.alert && inWindow && Date.now() - (d.lastAlert ?? 0) > ALERT_COOLDOWN_MS;
+      const inDay = now.hour >= DAY_HOURS.start && now.hour < DAY_HOURS.end;
+      const dueAlert = d.alert && inDay && Date.now() - (d.lastAlert ?? 0) > ALERT_COOLDOWN_MS;
       if (!dueMorning && !dueAlert) continue;
 
       const f = await forecastFor(d);
@@ -47,10 +48,10 @@ export async function GET(req: NextRequest) {
         // Mark first so a failed send is not retried every 10 minutes all morning.
         next = { ...next, lastMorning: now.date };
         await saveDevice(next);
-        if (await sendNotice(d, morningMessage(f, now, d.window, d.place))) sent++;
+        if (await sendNotice(d, morningMessage(f, now, d.place))) sent++;
       }
       if (dueAlert) {
-        const msg = alertMessage(f, now, d.window, d.place);
+        const msg = alertMessage(f, now, d.place);
         if (msg) {
           next = { ...next, lastAlert: Date.now() };
           await saveDevice(next);

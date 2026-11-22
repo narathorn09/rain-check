@@ -1,4 +1,4 @@
-import type { Forecast, Level, Minutely, SellWindow, Slot } from "./types";
+import type { Forecast, HourRange, Level, Minutely, Slot } from "./types";
 import { thaiHour, type BangkokNow } from "./time";
 
 export const LEVEL_LABEL: Record<Level, string> = {
@@ -6,6 +6,9 @@ export const LEVEL_LABEL: Record<Level, string> = {
   light: "ฝนเบา",
   heavy: "ฝนตกหนัก",
 };
+
+/** Hours of the day that summaries and alerts cover; overnight rain is not worth a message. */
+export const DAY_HOURS: HourRange = { start: 5, end: 21 };
 
 const RAIN_MM = 0.1;
 const HEAVY_MM_PER_HOUR = 2.5;
@@ -52,7 +55,7 @@ export interface Summary {
 export function slotsInWindow(
   slots: Slot[],
   now: BangkokNow,
-  win: SellWindow,
+  win: HourRange = DAY_HOURS,
   date: string = now.date,
 ): Slot[] {
   return slots.filter(

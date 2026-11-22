@@ -27,7 +27,7 @@ export interface Place {
   lon: number;
 }
 
-export interface SellWindow {
+export interface HourRange {
   /** Start hour, 0-23. */
   start: number;
   /** End hour (exclusive), 1-24. */
@@ -41,7 +41,6 @@ export interface DeviceRecord {
     keys: { p256dh: string; auth: string };
   };
   place: Place;
-  window: SellWindow;
   morning: boolean;
   /** Minutes after midnight (Bangkok) for the morning summary. */
   morningMinutes: number;

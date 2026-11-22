@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react";
 import { enablePush, pushSupported, syncDevice } from "@/lib/client/push";
 import type { Settings } from "@/lib/client/settings";
-import { PlacePicker, WindowEditor } from "./controls";
+import { PlacePicker } from "./controls";
 
 interface InstallEvent extends Event {
   prompt: () => Promise<void>;
 }
 
-const STEPS = 4;
+const STEPS = 3;
 
 /** One-time setup, meant to be done by a family member on the user's phone. */
 export function Wizard({ settings, update }: { settings: Settings; update: (p: Partial<Settings>) => void }) {
@@ -49,38 +49,27 @@ export function Wizard({ settings, update }: { settings: Settings; update: (p: P
 
       {step === 1 && (
         <section className="card stack">
-          <h2>1. เลือกจุดขายของ</h2>
-          <p className="note">ใช้ดูฝนและส่งแจ้งเตือน เลือกที่ที่ขายของเป็นประจำค่ะ</p>
-          {settings.sellSpot ? (
+          <h2>1. เลือกสถานที่</h2>
+          <p className="note">ใช้ดูฝนและส่งแจ้งเตือน เลือกที่ที่อยู่เป็นประจำค่ะ</p>
+          {settings.place ? (
             <>
-              <p className="big">เลือกแล้ว: {settings.sellSpot.name}</p>
+              <p className="big">เลือกแล้ว: {settings.place.name}</p>
               <button type="button" className="btn primary wide" onClick={next}>
                 ถัดไป
               </button>
-              <button type="button" className="btn wide" onClick={() => update({ sellSpot: null })}>
+              <button type="button" className="btn wide" onClick={() => update({ place: null })}>
                 เลือกใหม่
               </button>
             </>
           ) : (
-            <PlacePicker onPick={(p) => update({ sellSpot: p })} />
+            <PlacePicker onPick={(p) => update({ place: p })} />
           )}
         </section>
       )}
 
       {step === 2 && (
         <section className="card stack">
-          <h2>2. ช่วงเวลาขายของ</h2>
-          <p className="note">แอปจะบอกเฉพาะฝนในช่วงเวลานี้ค่ะ</p>
-          <WindowEditor value={settings.window} onChange={(w) => update({ window: w })} />
-          <button type="button" className="btn primary wide" onClick={next}>
-            ถัดไป
-          </button>
-        </section>
-      )}
-
-      {step === 3 && (
-        <section className="card stack">
-          <h2>3. แจ้งเตือนฝน</h2>
+          <h2>2. แจ้งเตือนฝน</h2>
           <p className="note">เตือนตอนเช้าว่าวันนี้ฝนตกตอนไหน และเตือนก่อนฝนจะตก ไม่ต้องเปิดแอปค่ะ</p>
           {pushSupported() ? (
             <button type="button" className="btn primary wide" onClick={allowNotifications}>
@@ -96,9 +85,9 @@ export function Wizard({ settings, update }: { settings: Settings; update: (p: P
         </section>
       )}
 
-      {step === 4 && (
+      {step === 3 && (
         <section className="card stack">
-          <h2>4. วางไว้บนหน้าจอหลัก</h2>
+          <h2>3. วางไว้บนหน้าจอหลัก</h2>
           <p className="note">จะได้กดเปิดจากหน้าจอโทรศัพท์ได้เลย เหมือนแอปทั่วไปค่ะ</p>
           {installEvent ? (
             <button

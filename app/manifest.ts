@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "เช็คฝน",
     short_name: "เช็คฝน",
-    description: "ดูว่าฝนจะตกตอนไหน ก่อนออกไปขายของ",
+    description: "ดูว่าฝนจะตกตอนไหน ดูง่าย เข้าใจง่าย",
     lang: "th",
     start_url: "/",
     display: "standalone",

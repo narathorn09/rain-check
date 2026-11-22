@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Place, SellWindow } from "@/lib/types";
+import type { Place } from "@/lib/types";
 import { Avatar } from "./Avatar";
 
 interface Msg {
@@ -13,8 +13,8 @@ interface Msg {
 
 const QUICK = [
   "วันนี้ควรพกร่มไหม",
-  "ช่วงขายของวันนี้ฝนตกไหม",
-  "ออกไปขายของกี่โมงดี",
+  "วันนี้ฝนจะตกตอนไหน",
+  "ออกจากบ้านกี่โมงดี",
   "พรุ่งนี้ฝนจะตกไหม",
 ];
 
@@ -45,7 +45,7 @@ function makeRecognition(): Recognition | null {
   return r;
 }
 
-export function ChatTab({ place, win }: { place: Place; win: SellWindow }) {
+export function ChatTab({ place }: { place: Place }) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -77,7 +77,7 @@ export function ChatTab({ place, win }: { place: Place; win: SellWindow }) {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next.map(({ role, text }) => ({ role, text })), place, window: win }),
+        body: JSON.stringify({ messages: next.map(({ role, text }) => ({ role, text })), place }),
       });
       const data = (await res.json()) as { text?: string };
       if (!res.ok || !data.text) throw new Error();

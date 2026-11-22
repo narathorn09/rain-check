@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { disablePush, enablePush, pushSupported, sendTest, syncDevice } from "@/lib/client/push";
 import type { Settings } from "@/lib/client/settings";
-import { MorningTimeEditor, PlacePicker, Switch, WindowEditor } from "./controls";
+import { MorningTimeEditor, PlacePicker, Switch } from "./controls";
 
 type Perm = "granted" | "denied" | "default" | "unsupported";
 
@@ -56,25 +56,20 @@ export function SettingsView({
       </div>
 
       <section className="card stack">
-        <h3>จุดขายของ</h3>
-        <p className="big">{settings.sellSpot ? settings.sellSpot.name : "ยังไม่ได้เลือก"}</p>
+        <h3>สถานที่ของฉัน</h3>
+        <p className="big">{settings.place ? settings.place.name : "ยังไม่ได้เลือก"}</p>
         {changing ? (
           <PlacePicker
             onPick={(p) => {
-              update({ sellSpot: p });
+              update({ place: p });
               setChanging(false);
             }}
           />
         ) : (
           <button type="button" className="btn wide" onClick={() => setChanging(true)}>
-            เปลี่ยนจุดขายของ
+            เปลี่ยนสถานที่
           </button>
         )}
-      </section>
-
-      <section className="card stack">
-        <h3>ช่วงเวลาขายของ</h3>
-        <WindowEditor value={settings.window} onChange={(w) => update({ window: w })} />
       </section>
 
       <section className="card stack">
@@ -85,14 +80,14 @@ export function SettingsView({
               checked={settings.morning}
               onChange={(v) => update({ morning: v })}
               title="สรุปฝนตอนเช้า"
-              hint="บอกว่าวันนี้ช่วงขายของฝนตกตอนไหน"
+              hint="บอกว่าวันนี้ฝนตกตอนไหน"
             />
             {settings.morning && <MorningTimeEditor minutes={settings.morningMinutes} onChange={(m) => update({ morningMinutes: m })} />}
             <Switch
               checked={settings.alert}
               onChange={(v) => update({ alert: v })}
               title="เตือนก่อนฝนตก"
-              hint="เตือนเมื่อฝนจะตกใน 30 นาที (เฉพาะช่วงขายของ)"
+              hint="เตือนเมื่อฝนจะตกใน 30 นาที (ตั้งแต่ตี 5 ถึง 3 ทุ่ม)"
             />
             <button type="button" className="btn wide" onClick={test}>
               ส่งข้อความทดสอบ
