@@ -1,18 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { mergeBySky, minutesToRain, slotsInWindow, summarize } from "@/lib/rain";
+import { mergeBySky, minutesToRain, rangeText, slotsInWindow, summarize } from "@/lib/rain";
 import { isRainy, levelOfSky, SKY_LABEL, skyOf, type Sky } from "@/lib/sky";
 import { addDays, bangkokNow, thaiHour } from "@/lib/time";
 import type { Forecast, Place } from "@/lib/types";
-import { PinIcon, SkyIcon } from "./Icons";
+import { SkyIcon } from "./Icons";
 import { Mascot, mascotFor } from "./Mascot";
 import { WeatherScene } from "./WeatherScene";
 
-// Night-time "clear" is left out: the legend explains daytime pictures.
-const LEGEND: Sky[] = ["sunny", "partly", "cloudy", "fog", "drizzle", "rain", "moderate", "heavy", "storm"];
-
-export function RainTab({ place, here, nowTick }: { place: Place; here: boolean; nowTick: number }) {
+export function RainTab({ place, nowTick }: { place: Place; nowTick: number }) {
   const [forecast, setForecast] = useState<Forecast | null>(null);
   const [error, setError] = useState(false);
   const [day, setDay] = useState<"today" | "tomorrow">("today");
@@ -97,6 +94,23 @@ export function RainTab({ place, here, nowTick }: { place: Place; here: boolean;
   const temp = forecast.current ? `${Math.round(forecast.current.temp)}°` : "";
   const buddy = mascotFor(heroSky);
 
+  // Headline for the rest of today's daytime (or tomorrow, late in the evening).
+  const dayWord = todaySlots.length === 0 ? "พรุ่งนี้" : "วันนี้";
+  const dayLevel = summary.rainRanges.some((r) => r.level === "heavy")
+    ? "heavy"
+    : summary.rainRanges.length
+      ? "light"
+      : "dry";
+  const headline = dayLevel === "heavy" ? "ฝนตกหนัก" : dayLevel === "light" ? "มีฝน" : "ไม่มีฝน";
+  const mixed = new Set(summary.rainRanges.map((r) => r.level)).size > 1;
+  const detail =
+    dayLevel === "dry"
+      ? "ไม่ต้องพกร่มค่ะ"
+      : `ช่วง ${summary.rainRanges
+          // Only mark the heavy spells when light ones are mixed in; otherwise the headline says it.
+          .map((r) => (r.level === "heavy" && mixed ? `${rangeText(r)} (ตกหนัก)` : rangeText(r)))
+          .join(" และ ")}`;
+
   const nowLine =
     m === null
       ? "ใน 2-3 ชั่วโมงนี้ยังไม่มีฝน"
@@ -118,17 +132,26 @@ export function RainTab({ place, here, nowTick }: { place: Place; here: boolean;
           </div>
           <p className="say">{buddy.line}</p>
         </div>
+        {/* The one thing to read at a glance: will it rain today, and when. */}
+        <div className={`today ${dayLevel}`}>
+          <div className="today-main">
+            <span className="today-icon" aria-hidden="true">
+              <SkyIcon sky={dayLevel === "heavy" ? "heavy" : dayLevel === "light" ? "rain" : "sunny"} />
+            </span>
+            <p className="today-word">
+              <span className="today-day">{dayWord}</span>
+              {headline}
+            </p>
+            {temp && (
+              <p className="today-temp" aria-label={`อุณหภูมิตอนนี้ ${temp}`}>
+                {temp}
+              </p>
+            )}
+          </div>
+          <p className="today-times">{detail}</p>
+        </div>
         <div className="hero-body">
-          <p className="hero-place">
-            <PinIcon />
-            {here ? "ตอนนี้อยู่ที่ " : ""}
-            {place.name}
-          </p>
-          <span className={`hero-now ${levelOfSky(heroSky)}`}>
-            ตอนนี้: {SKY_LABEL[heroSky]}
-            {temp && ` · ${temp}`}
-          </span>
-          <p className="hero-text">{summary.text}</p>
+          <span className={`hero-now ${levelOfSky(heroSky)}`}>ตอนนี้: {SKY_LABEL[heroSky]}</span>
           <p className="hero-sub">{nowLine}</p>
         </div>
       </section>
@@ -162,15 +185,6 @@ export function RainTab({ place, here, nowTick }: { place: Place; here: boolean;
         ))}
       </div>
 
-      <p className="section-label">ภาพแต่ละแบบหมายถึงอะไร</p>
-      <div className="legend">
-        {LEGEND.map((s) => (
-          <figure key={s}>
-            <WeatherScene sky={s} />
-            <figcaption className={`row-sub ${levelOfSky(s)}`}>{SKY_LABEL[s]}</figcaption>
-          </figure>
-        ))}
-      </div>
       <p className="note">พยากรณ์อาจคลาดเคลื่อนได้ ถ้าไม่แน่ใจ พกร่มไว้ก่อนนะคะ</p>
     </div>
   );

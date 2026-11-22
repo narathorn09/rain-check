@@ -152,7 +152,7 @@ export function App() {
       </header>
 
       <section className="content">
-        {tab === "rain" && <RainTab place={place} here={isHere} nowTick={tick} />}
+        {tab === "rain" && <RainTab place={place} nowTick={tick} />}
         {tab === "radar" && <RadarTab place={place} />}
         {tab === "chat" && (
           <ChatTab place={place} profile={{ callName: settings.callName, routine: settings.routine }} />
