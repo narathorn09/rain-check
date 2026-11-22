@@ -52,7 +52,7 @@ export function advanceMessage(f: Forecast, now: BangkokNow, place: Place) {
   if (ahead < MIN_ADVANCE_MIN) return null;
   // Round down so the message never promises more time than there is.
   const hours = Math.floor(ahead / 60);
-  const kind = next.level === "heavy" ? "ฝนตกหนัก" : "ฝนจะตก";
+  const kind = next.sky === "storm" ? "จะมีพายุฝนฟ้าคะนอง" : next.level === "heavy" ? "ฝนตกหนัก" : "ฝนจะตก";
   return {
     key: `${next.date}T${String(next.hour).padStart(2, "0")}`,
     title: "เช็คฝน: เตือนล่วงหน้า",

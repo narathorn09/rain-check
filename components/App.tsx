@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { geoAlreadyGranted, getPosition } from "@/lib/client/geo";
+import { geoAlreadyGranted, getPosition, placeName } from "@/lib/client/geo";
 import { registerWorker, syncDevice } from "@/lib/client/push";
 import { useSettings } from "@/lib/client/settings";
 import type { Place } from "@/lib/types";
 import { Avatar } from "./Avatar";
 import { ChatTab } from "./ChatTab";
-import { ChatIcon, GearIcon, MapIcon, UmbrellaIcon } from "./Icons";
+import { ChatIcon, GearIcon, MapIcon, PinIcon, UmbrellaIcon } from "./Icons";
 import { RadarTab } from "./RadarTab";
 import { RainTab } from "./RainTab";
 import { SettingsView } from "./SettingsView";
@@ -48,7 +48,11 @@ export function App() {
       if (!ok || cancelled) return;
       try {
         const fix = await getPosition();
-        if (!cancelled) setGps({ name: "ตำแหน่งตอนนี้", lat: fix.lat, lon: fix.lon });
+        if (cancelled) return;
+        // Show the forecast right away; the name arrives a moment later.
+        setGps({ name: "ตำแหน่งตอนนี้", lat: fix.lat, lon: fix.lon });
+        const name = await placeName(fix.lat, fix.lon);
+        if (name && !cancelled) setGps({ name, lat: fix.lat, lon: fix.lon });
       } catch {
         // Falls back to the saved place.
       }
@@ -96,9 +100,14 @@ export function App() {
     );
   }
 
+  const isHere = Boolean(useGps && gps);
   const placeLine = (
     <p className="appbar-sub">
-      {place.name}
+      <span className="place-name">
+        <PinIcon />
+        {place.name}
+        {isHere && <span className="here-tag">ตำแหน่งตอนนี้</span>}
+      </span>
       {gps && (
         <button type="button" className="link" onClick={() => setUseGps((v) => !v)}>
           {useGps ? "ดูที่สถานที่ของฉัน" : "ดูที่ตำแหน่งตอนนี้"}
@@ -133,7 +142,7 @@ export function App() {
       </header>
 
       <section className="content">
-        {tab === "rain" && <RainTab place={place} nowTick={tick} />}
+        {tab === "rain" && <RainTab place={place} here={isHere} nowTick={tick} />}
         {tab === "radar" && <RadarTab place={place} />}
         {tab === "chat" && <ChatTab place={place} />}
       </section>

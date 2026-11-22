@@ -1,4 +1,4 @@
-import type { Level } from "@/lib/types";
+import type { Sky } from "@/lib/sky";
 
 // Outline icons in the style of chat-app tab bars. All use currentColor.
 const base = {
@@ -87,24 +87,78 @@ export const PauseIcon = () => (
   </svg>
 );
 
-/** Small static weather glyph used in list rows. */
-export function LevelIcon({ level }: { level: Level }) {
-  if (level === "dry") {
-    return (
-      <svg {...base} aria-hidden>
-        <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />
-        <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-      </svg>
-    );
+const CLOUD = "M7 15a4 4 0 0 1-.6-8 5.5 5.5 0 0 1 10.6 1.5A3.3 3.3 0 0 1 17 15z";
+
+/** Small static weather glyph used in list rows, one per sky type. */
+export function SkyIcon({ sky }: { sky: Sky }) {
+  switch (sky) {
+    case "sunny":
+      return (
+        <svg {...base}>
+          <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />
+          <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+        </svg>
+      );
+    case "clear":
+      return (
+        <svg {...base}>
+          <path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" fill="currentColor" fillOpacity="0.15" />
+        </svg>
+      );
+    case "partly":
+      return (
+        <svg {...base}>
+          <path d="M8 3v1.5M3.5 8H2M4.8 4.8l1 1" />
+          <circle cx="8.5" cy="8.5" r="3" />
+          <path d="M9 20a3.5 3.5 0 0 1-.5-7 5 5 0 0 1 9.6 1.3A3 3 0 0 1 18 20z" fill="currentColor" fillOpacity="0.15" />
+        </svg>
+      );
+    case "cloudy":
+      return (
+        <svg {...base}>
+          <path d={CLOUD} fill="currentColor" fillOpacity="0.15" transform="translate(0 3)" />
+        </svg>
+      );
+    case "fog":
+      return (
+        <svg {...base}>
+          <path d="M4 9h16M2 13h14M6 17h16" />
+        </svg>
+      );
+    case "drizzle":
+      return (
+        <svg {...base}>
+          <path d={CLOUD} fill="currentColor" fillOpacity="0.15" />
+          <path d="M9 19h.01M12 21h.01M15 19h.01" strokeWidth="3" />
+        </svg>
+      );
+    case "rain":
+      return (
+        <svg {...base}>
+          <path d={CLOUD} fill="currentColor" fillOpacity="0.15" />
+          <path d="M10 18v2M14 18v2" />
+        </svg>
+      );
+    case "moderate":
+      return (
+        <svg {...base}>
+          <path d={CLOUD} fill="currentColor" fillOpacity="0.15" />
+          <path d="M9 18l-.5 2.5M12 18l-.5 2.5M15 18l-.5 2.5" />
+        </svg>
+      );
+    case "heavy":
+      return (
+        <svg {...base}>
+          <path d={CLOUD} fill="currentColor" fillOpacity="0.15" />
+          <path d="M8 18l-1 3M11 18l-1 3M14 18l-1 3M17 18l-1 3" />
+        </svg>
+      );
+    case "storm":
+      return (
+        <svg {...base}>
+          <path d={CLOUD} fill="currentColor" fillOpacity="0.15" />
+          <path d="M12 16l-2 3h3l-2 3" />
+        </svg>
+      );
   }
-  return (
-    <svg {...base} aria-hidden>
-      <path d="M7 15a4 4 0 0 1-.6-8 5.5 5.5 0 0 1 10.6 1.5A3.3 3.3 0 0 1 17 15z" fill="currentColor" fillOpacity="0.15" />
-      {level === "light" ? (
-        <path d="M10 18v2M14 18v2" />
-      ) : (
-        <path d="M8 18l-1 3M12 18l-1 3M16 18l-1 3" />
-      )}
-    </svg>
-  );
 }

@@ -1,3 +1,5 @@
+import type { Sky } from "./sky";
+
 export type Level = "dry" | "light" | "heavy";
 
 export interface Slot {
@@ -7,6 +9,8 @@ export interface Slot {
   mm: number;
   prob: number;
   level: Level;
+  /** Display condition; optional so hand-built slots (tests) can fall back to `level`. */
+  sky?: Sky;
 }
 
 export interface Minutely {
@@ -19,6 +23,7 @@ export interface Minutely {
 export interface Forecast {
   slots: Slot[];
   minutely: Minutely[];
+  current?: { sky: Sky; temp: number };
 }
 
 export interface Place {

@@ -1,15 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { LEVEL_LABEL, mergeRanges, minutesToRain, slotsInWindow, summarize } from "@/lib/rain";
+import { mergeBySky, minutesToRain, slotsInWindow, summarize } from "@/lib/rain";
+import { isRainy, levelOfSky, SKY_LABEL, skyOf, type Sky } from "@/lib/sky";
 import { addDays, bangkokNow, thaiHour } from "@/lib/time";
-import type { Forecast, Level, Place } from "@/lib/types";
-import { LevelIcon } from "./Icons";
+import type { Forecast, Place } from "@/lib/types";
+import { PinIcon, SkyIcon } from "./Icons";
 import { WeatherScene } from "./WeatherScene";
 
-const LEVELS: Level[] = ["dry", "light", "heavy"];
+// Night-time "clear" is left out: the legend explains daytime pictures.
+const LEGEND: Sky[] = ["sunny", "partly", "cloudy", "fog", "drizzle", "rain", "moderate", "heavy", "storm"];
 
-export function RainTab({ place, nowTick }: { place: Place; nowTick: number }) {
+export function RainTab({ place, here, nowTick }: { place: Place; here: boolean; nowTick: number }) {
   const [forecast, setForecast] = useState<Forecast | null>(null);
   const [error, setError] = useState(false);
   const [day, setDay] = useState<"today" | "tomorrow">("today");
@@ -38,7 +40,7 @@ export function RainTab({ place, nowTick }: { place: Place; nowTick: number }) {
   if (error && !forecast) {
     return (
       <div className="hero">
-        <WeatherScene level="light" className="hero-scene" />
+        <WeatherScene sky="cloudy" className="hero-scene" />
         <div className="hero-body">
           <p className="big">ดูข้อมูลฝนไม่ได้ในตอนนี้</p>
           <p className="note">ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่นะคะ</p>
@@ -71,8 +73,21 @@ export function RainTab({ place, nowTick }: { place: Place; nowTick: number }) {
 
   const m = minutesToRain(forecast.minutely, now);
   const thisHour = forecast.slots.find((s) => s.date === now.date && s.hour === now.hour);
-  // The picture shows the sky right now; the 15-minute data is the better signal for "now".
-  const nowLevel: Level = m === 0 ? (thisHour?.level === "heavy" ? "heavy" : "light") : "dry";
+  const reported = forecast.current?.sky ?? (thisHour ? skyOf(thisHour) : "sunny");
+  // The 15-minute rain data decides wet or dry right now, so the picture never
+  // shows rain while the text says it is dry (or the other way round).
+  const heroSky: Sky =
+    m === 0
+      ? isRainy(reported)
+        ? reported
+        : thisHour?.level === "heavy"
+          ? "heavy"
+          : "rain"
+      : isRainy(reported)
+        ? "cloudy"
+        : reported;
+  const temp = forecast.current ? `${Math.round(forecast.current.temp)}°` : "";
+
   const nowLine =
     m === null
       ? "ใน 2-3 ชั่วโมงนี้ยังไม่มีฝน"
@@ -82,14 +97,22 @@ export function RainTab({ place, nowTick }: { place: Place; nowTick: number }) {
 
   const date = day === "today" ? now.date : tomorrow;
   const daySlots = forecast.slots.filter((s) => s.date === date && (day === "tomorrow" || s.hour >= now.hour));
-  const blocks = mergeRanges(daySlots);
+  const blocks = mergeBySky(daySlots);
 
   return (
     <div className="stack">
       <section className="hero" aria-live="polite">
-        <WeatherScene level={nowLevel} className="hero-scene" />
+        <WeatherScene sky={heroSky} className="hero-scene" />
         <div className="hero-body">
-          <span className={`hero-now ${nowLevel}`}>ตอนนี้: {LEVEL_LABEL[nowLevel]}</span>
+          <p className="hero-place">
+            <PinIcon />
+            {here ? "ตอนนี้อยู่ที่ " : ""}
+            {place.name}
+          </p>
+          <span className={`hero-now ${levelOfSky(heroSky)}`}>
+            ตอนนี้: {SKY_LABEL[heroSky]}
+            {temp && ` · ${temp}`}
+          </span>
           <p className="hero-text">{summary.text}</p>
           <p className="hero-sub">{nowLine}</p>
         </div>
@@ -110,15 +133,15 @@ export function RainTab({ place, nowTick }: { place: Place; nowTick: number }) {
           </div>
         )}
         {blocks.map((b) => (
-          <div key={`${b.start}-${b.level}`} className="list-row">
+          <div key={`${b.start}-${b.sky}`} className="list-row">
             <div className={`lead ${b.level}`}>
-              <LevelIcon level={b.level} />
+              <SkyIcon sky={b.sky} />
             </div>
             <div className="row-main">
               <p className="row-title">
                 {thaiHour(b.start)} ถึง {thaiHour(b.end)}
               </p>
-              <p className={`row-sub ${b.level}`}>{LEVEL_LABEL[b.level]}</p>
+              <p className={`row-sub ${b.level}`}>{SKY_LABEL[b.sky]}</p>
             </div>
           </div>
         ))}
@@ -126,10 +149,10 @@ export function RainTab({ place, nowTick }: { place: Place; nowTick: number }) {
 
       <p className="section-label">ภาพแต่ละแบบหมายถึงอะไร</p>
       <div className="legend">
-        {LEVELS.map((l) => (
-          <figure key={l}>
-            <WeatherScene level={l} />
-            <figcaption className={`row-sub ${l}`}>{LEVEL_LABEL[l]}</figcaption>
+        {LEGEND.map((s) => (
+          <figure key={s}>
+            <WeatherScene sky={s} />
+            <figcaption className={`row-sub ${levelOfSky(s)}`}>{SKY_LABEL[s]}</figcaption>
           </figure>
         ))}
       </div>

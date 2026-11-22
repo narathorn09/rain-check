@@ -1,4 +1,4 @@
-import { ApiError, GoogleGenAI } from "@google/genai";
+import { ApiError, FinishReason, GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
 import { forecastForPrompt } from "@/lib/rain";
 import { bangkokNow, clock, thaiHour } from "@/lib/time";
@@ -87,9 +87,15 @@ ${forecastForPrompt(forecast, now)}`;
           model,
           contents: turns,
           // No temperature/top_p/top_k: Gemini 3.x deprecates them and newer models reject them.
-          // The limit is generous because thinking tokens count against it, and a too-small
-          // limit can leave the visible answer empty.
-          config: { systemInstruction: system, maxOutputTokens: 1024, abortSignal },
+          // Thinking tokens count against maxOutputTokens, so a medium-thinking model could
+          // spend the budget reasoning and cut the visible answer short. LOW is the lowest
+          // level all three models in MODELS accept (3.8 Flash rejects MINIMAL).
+          config: {
+            systemInstruction: system,
+            maxOutputTokens: 2048,
+            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+            abortSignal,
+          },
         });
         break;
       } catch (err) {
@@ -100,6 +106,9 @@ ${forecastForPrompt(forecast, now)}`;
       }
     }
     if (!res) throw lastError;
+    if (res.candidates?.[0]?.finishReason === FinishReason.MAX_TOKENS) {
+      console.warn("chat: answer hit the token limit", res.usageMetadata);
+    }
     const text = res.text?.trim();
     if (!text) return NextResponse.json({ error: "empty answer" }, { status: 502 });
     return NextResponse.json({ text });

@@ -18,6 +18,18 @@ export function getPosition(): Promise<Fix> {
   });
 }
 
+/** Thai place name for coordinates (e.g. "ต.สุเทพ อ.เมืองเชียงใหม่ จ.เชียงใหม่"), or null. */
+export async function placeName(lat: number, lon: number): Promise<string | null> {
+  try {
+    const res = await fetch(`/api/reverse?lat=${lat}&lon=${lon}`);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { name?: string };
+    return data.name ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** True only when permission was already granted, so no prompt appears unexpectedly. */
 export async function geoAlreadyGranted(): Promise<boolean> {
   try {

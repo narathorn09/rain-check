@@ -1,3 +1,4 @@
+import { SKY_LABEL, skyOf, type Sky } from "./sky";
 import type { Forecast, HourRange, Level, Minutely, Slot } from "./types";
 import { thaiHour, type BangkokNow } from "./time";
 
@@ -97,6 +98,28 @@ export function minutesToRain(minutely: Minutely[], now: BangkokNow): number | n
   return null;
 }
 
+export interface SkyRange {
+  start: number;
+  end: number;
+  sky: Sky;
+  level: Level;
+}
+
+/** Merge consecutive hours that look the same into display ranges. `end` is exclusive. */
+export function mergeBySky(slots: Slot[]): SkyRange[] {
+  const out: SkyRange[] = [];
+  for (const s of slots) {
+    const sky = skyOf(s);
+    const last = out[out.length - 1];
+    if (last && last.sky === sky && last.end === s.hour) {
+      last.end = s.hour + 1;
+    } else {
+      out.push({ start: s.hour, end: s.hour + 1, sky, level: s.level });
+    }
+  }
+  return out;
+}
+
 /** Plain-text forecast block that the chat model uses as its only source of truth. */
 export function forecastForPrompt(f: Forecast, now: BangkokNow): string {
   const lines: string[] = [];
@@ -105,8 +128,11 @@ export function forecastForPrompt(f: Forecast, now: BangkokNow): string {
     if (s.date === now.date && s.hour < now.hour) continue;
     const day = s.date === now.date ? "วันนี้" : "พรุ่งนี้";
     lines.push(
-      `${day} ${String(s.hour).padStart(2, "0")}:00 (${thaiHour(s.hour)}): ${LEVEL_LABEL[s.level]}, ฝน ${s.mm.toFixed(1)} มม., โอกาสฝน ${s.prob}%`,
+      `${day} ${String(s.hour).padStart(2, "0")}:00 (${thaiHour(s.hour)}): ${SKY_LABEL[skyOf(s)]} (${LEVEL_LABEL[s.level]}), ฝน ${s.mm.toFixed(1)} มม., โอกาสฝน ${s.prob}%`,
     );
   }
-  return lines.join("\n");
+  const currentLine = f.current
+    ? `ตอนนี้: ${SKY_LABEL[f.current.sky]}, อุณหภูมิ ${Math.round(f.current.temp)} องศา\n`
+    : "";
+  return currentLine + lines.join("\n");
 }

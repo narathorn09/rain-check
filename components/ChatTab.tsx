@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Place } from "@/lib/types";
 import { Avatar } from "./Avatar";
 import { MicIcon } from "./Icons";
+import { speakThai, speechSupported, stopSpeaking } from "@/lib/client/speech";
 
 interface Msg {
   role: "user" | "model";
@@ -54,13 +55,16 @@ export function ChatTab({ place }: { place: Place }) {
   const [speaking, setSpeaking] = useState<number | null>(null);
   const [hasMic, setHasMic] = useState(false);
   const [canSpeak, setCanSpeak] = useState(false);
+  const [noThaiVoice, setNoThaiVoice] = useState(false);
   const recRef = useRef<Recognition | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  // Mirrors `speaking` so async speech callbacks see the latest value, not a stale closure.
+  const speakingRef = useRef<number | null>(null);
 
   useEffect(() => {
     setHasMic(Boolean((window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition));
-    setCanSpeak("speechSynthesis" in window);
-    return () => window.speechSynthesis?.cancel();
+    setCanSpeak(speechSupported());
+    return () => stopSpeaking();
   }, []);
 
   useEffect(() => {
@@ -93,21 +97,23 @@ export function ChatTab({ place }: { place: Place }) {
     setBusy(false);
   }
 
-  function speak(t: string, index: number) {
-    const synth = window.speechSynthesis;
-    if (!synth) return;
-    synth.cancel();
-    if (speaking === index) {
+  async function speak(t: string, index: number) {
+    if (speakingRef.current === index) {
+      stopSpeaking();
+      speakingRef.current = null;
       setSpeaking(null);
       return;
     }
-    const u = new SpeechSynthesisUtterance(t);
-    u.lang = "th-TH";
-    u.rate = 0.9;
-    u.onend = () => setSpeaking(null);
-    u.onerror = () => setSpeaking(null);
+    speakingRef.current = index;
     setSpeaking(index);
-    synth.speak(u);
+    const result = await speakThai(t, () => {
+      // Only the reading that is still current may clear the button state.
+      if (speakingRef.current === index) {
+        speakingRef.current = null;
+        setSpeaking(null);
+      }
+    });
+    if (result === "no-thai-voice") setNoThaiVoice(true);
   }
 
   function toggleMic() {
@@ -161,6 +167,13 @@ export function ChatTab({ place }: { place: Place }) {
         )}
         <div ref={endRef} />
       </div>
+
+      {noThaiVoice && (
+        <p className="voice-note" role="status">
+          เครื่องนี้ยังไม่มีเสียงอ่านภาษาไทย เสียงอาจฟังไม่ชัด ติดตั้งได้ที่ ตั้งค่าเครื่อง &gt; ภาษา &gt; การอ่านออกเสียง
+          (Text-to-speech) แล้วดาวน์โหลดภาษาไทยค่ะ
+        </p>
+      )}
 
       <div className="pills">
         {QUICK.map((q) => (

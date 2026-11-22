@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { getPosition, type GeoError } from "@/lib/client/geo";
+import { getPosition, placeName, type GeoError } from "@/lib/client/geo";
 import { clock } from "@/lib/time";
 import type { Place } from "@/lib/types";
 import { PinIcon } from "./Icons";
@@ -99,7 +99,8 @@ export function PlacePicker({ onPick }: { onPick: (p: Place) => void }) {
     setMsg("");
     try {
       const fix = await getPosition();
-      onPick({ name: "ที่ที่ฉันอยู่", lat: fix.lat, lon: fix.lon });
+      const name = await placeName(fix.lat, fix.lon);
+      onPick({ name: name ?? "ที่ที่ฉันอยู่", lat: fix.lat, lon: fix.lon });
     } catch (e) {
       setMsg(
         (e as GeoError) === "denied"

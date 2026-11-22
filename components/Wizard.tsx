@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { enablePush, pushSupported, syncDevice } from "@/lib/client/push";
 import type { Settings } from "@/lib/client/settings";
-import type { Level } from "@/lib/types";
+import type { Sky } from "@/lib/sky";
 import { PlacePicker } from "./controls";
 import { WeatherScene } from "./WeatherScene";
 
@@ -11,7 +11,7 @@ interface InstallEvent extends Event {
   prompt: () => Promise<void>;
 }
 
-const SCENES: Level[] = ["dry", "light", "heavy"];
+const SCENES: Sky[] = ["sunny", "rain", "storm"];
 
 /** One-time setup, meant to be done by a family member on the user's phone. */
 export function Wizard({ settings, update }: { settings: Settings; update: (p: Partial<Settings>) => void }) {
@@ -53,7 +53,7 @@ export function Wizard({ settings, update }: { settings: Settings; update: (p: P
         ))}
       </div>
       <div className="onboard-art">
-        <WeatherScene level={SCENES[step - 1]} />
+        <WeatherScene sky={SCENES[step - 1]} />
       </div>
 
       {step === 1 && (
