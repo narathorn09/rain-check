@@ -31,7 +31,9 @@ function hhmm(at: number): string {
 type Recognition = {
   lang: string;
   interimResults: boolean;
-  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onresult:
+    | ((e: { results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> }) => void)
+    | null;
   onend: (() => void) | null;
   onerror: (() => void) | null;
   start: () => void;
@@ -43,7 +45,8 @@ function makeRecognition(): Recognition | null {
   if (!Ctor) return null;
   const r = new Ctor() as Recognition;
   r.lang = "th-TH";
-  r.interimResults = false;
+  // Partial results let the words appear in the input while the user is still speaking.
+  r.interimResults = true;
   return r;
 }
 
@@ -130,11 +133,25 @@ export function ChatTab({ place, profile }: { place: Place; profile: Profile }) 
     const r = makeRecognition();
     if (!r) return;
     recRef.current = r;
-    r.onresult = (e) => {
-      const said = e.results[0]?.[0]?.transcript ?? "";
-      if (said) ask(said);
+    let latest = "";
+    let sent = false;
+    const send = () => {
+      if (sent || !latest.trim()) return;
+      sent = true;
+      ask(latest);
     };
-    r.onend = () => setListening(false);
+    r.onresult = (e) => {
+      // Show the words as they are recognised, then send once the phrase is final.
+      latest = Array.from(e.results, (res) => res[0]?.transcript ?? "").join("");
+      setText(latest);
+      const last = e.results[e.results.length - 1];
+      if (last?.isFinal) send();
+    };
+    r.onend = () => {
+      setListening(false);
+      // Some browsers stop without marking the last result final; send what was heard.
+      send();
+    };
     r.onerror = () => setListening(false);
     setListening(true);
     r.start();
