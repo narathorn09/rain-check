@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import type { Profile } from "@/lib/profile";
 import type { Place } from "@/lib/types";
 import { Avatar } from "./Avatar";
-import { MicIcon, SpeakerIcon } from "./Icons";
+import { MicIcon, PhoneIcon, SpeakerIcon } from "./Icons";
+import { Mascot } from "./Mascot";
+import { VoiceCall, type CallState } from "@/lib/client/live";
 import { primeAudio, resumeAudio } from "@/lib/client/pcmPlayer";
 import { speak as speakAloud, startSpeech, stopSpeaking, type SpeechSession } from "@/lib/client/speech";
 
@@ -20,6 +22,20 @@ const QUICK = [
   "ออกจากบ้านกี่โมงดี",
   "พรุ่งนี้ฝนจะตกไหม",
 ];
+
+const CALL_STATUS: Record<CallState, string> = {
+  connecting: "กำลังต่อสายหาน้องฝน…",
+  listening: "น้องฝนฟังอยู่ พูดได้เลยค่ะ",
+  speaking: "น้องฝนกำลังพูด…",
+  ended: "",
+  error: "",
+};
+
+const CALL_ERRORS: Record<string, string> = {
+  "mic-denied": "ยังไม่ได้อนุญาตให้ใช้ไมค์ กดโทรอีกครั้งแล้วเลือก \"อนุญาต\" นะคะ",
+  "no-mic": "เครื่องนี้ใช้ไมค์กับแอปไม่ได้ ลองพิมพ์ถามแทนนะคะ",
+  connection: "ต่อสายไม่ได้ในตอนนี้ ลองพิมพ์ถามแทนก่อนนะคะ",
+};
 
 // The "สวัสดีค่ะ<name>" opening is added per user in ChatTab.
 const GREETING = "น้องฝนเองค่ะ ถามเรื่องฝนได้เลยนะคะ กดปุ่มด้านล่างหรือพูดก็ได้ค่ะ";
@@ -66,6 +82,49 @@ export function ChatTab({ place, profile }: { place: Place; profile: Profile }) 
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Voice call (Gemini Live): transcripts land in `msgs` like typed turns.
+  const [callState, setCallState] = useState<CallState | "idle">("idle");
+  const [callNote, setCallNote] = useState("");
+  const [canCall, setCanCall] = useState(false);
+  const callRef = useRef<VoiceCall | null>(null);
+  // Index of the bubble being filled by the current spoken turn, per side.
+  const callIdx = useRef<{ user: number | null; model: number | null }>({ user: null, model: null });
+  const inCall = callState === "connecting" || callState === "listening" || callState === "speaking";
+
+  function upsertSpoken(role: "user" | "model", text: string, done: boolean) {
+    const idx = callIdx.current[role];
+    if (idx === null) {
+      setMsgs((prev) => {
+        callIdx.current[role] = prev.length;
+        return [...prev, { role, text, at: Date.now() }];
+      });
+    } else {
+      setMsgs((prev) => prev.map((m, i) => (i === idx ? { ...m, text } : m)));
+    }
+    if (done) callIdx.current[role] = null;
+  }
+
+  function startCall() {
+    stopSpeaking();
+    setCallNote("");
+    callIdx.current = { user: null, model: null };
+    const call = new VoiceCall({
+      onState: (state, reason) => {
+        setCallState(state);
+        if (state === "error") setCallNote(CALL_ERRORS[reason ?? ""] ?? CALL_ERRORS.connection);
+        if (state === "ended" || state === "error") callRef.current = null;
+      },
+      onUserText: (t, done) => upsertSpoken("user", t, done),
+      onModelText: (t, done) => upsertSpoken("model", t, done),
+    });
+    callRef.current = call;
+    call.start(place, profile);
+  }
+
+  function hangUp() {
+    callRef.current?.stop();
+  }
+
   // Tapping a button would blur the input first; the keyboard then closes and the layout
   // jumps before the tap lands, so the button needed a second tap. Keep focus instead.
   const keepFocus = (e: React.MouseEvent) => e.preventDefault();
@@ -74,7 +133,11 @@ export function ChatTab({ place, profile }: { place: Place; profile: Profile }) 
 
   useEffect(() => {
     setHasMic(Boolean((window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition));
-    return () => stopSpeaking();
+    setCanCall(Boolean(navigator.mediaDevices?.getUserMedia) && "AudioWorkletNode" in window);
+    return () => {
+      stopSpeaking();
+      callRef.current?.stop();
+    };
   }, []);
 
   useEffect(() => {
@@ -262,14 +325,39 @@ export function ChatTab({ place, profile }: { place: Place; profile: Profile }) 
           </p>
         )}
 
-        <div className="pills" aria-label="คำถามที่ถามบ่อย">
-          {QUICK.map((q) => (
-            <button key={q} type="button" className="pill" onMouseDown={keepFocus} onClick={() => ask(q)} disabled={busy}>
-              {q}
+        {inCall ? (
+          <div className={`call-panel ${callState}`} role="status" aria-live="polite">
+            <Mascot face={callState === "speaking" ? "happy" : "think"} size={56} />
+            <p className="call-status">{CALL_STATUS[callState as CallState] ?? ""}</p>
+            <button type="button" className="hangup" onClick={hangUp}>
+              <PhoneIcon />
+              วางสาย
             </button>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <>
+            {callNote && (
+              <p className="voice-note" role="status">
+                {callNote}
+              </p>
+            )}
+            {canCall && (
+              <button type="button" className="call-btn" onMouseDown={keepFocus} onClick={startCall} disabled={busy}>
+                <PhoneIcon />
+                โทรคุยกับน้องฝน
+              </button>
+            )}
+            <div className="pills" aria-label="คำถามที่ถามบ่อย">
+              {QUICK.map((q) => (
+                <button key={q} type="button" className="pill" onMouseDown={keepFocus} onClick={() => ask(q)} disabled={busy}>
+                  {q}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
+        {!inCall && (
         <form
           className="composer"
           onSubmit={(e) => {
@@ -300,6 +388,7 @@ export function ChatTab({ place, profile }: { place: Place; profile: Profile }) 
             ส่ง
           </button>
         </form>
+        )}
       </div>
     </div>
   );

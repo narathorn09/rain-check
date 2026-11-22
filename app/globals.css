@@ -172,6 +172,16 @@ button.list-row:active { background: var(--bg); }
 .typing span:nth-child(2) { animation-delay: 0.15s; }
 .typing span:nth-child(3) { animation-delay: 0.3s; }
 .chat-bottom { flex: none; background: var(--card); border-top: 1px solid var(--line); padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+/* Voice call with น้องฝน */
+.call-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: var(--tap); border: 0; border-radius: 999px; background: var(--brand); color: #fff; font-weight: 800; font-size: 1.05rem; }
+.call-btn:disabled { opacity: 0.5; }
+.call-panel { display: flex; align-items: center; gap: 12px; padding: 4px 2px; }
+.call-panel .mascot { flex: none; }
+.call-panel.listening .mascot { animation: bob 1.2s ease-in-out infinite; }
+.call-status { flex: 1; min-width: 0; font-weight: 800; font-size: 1.05rem; color: var(--ink); }
+.call-panel.listening .call-status { color: var(--brand); }
+.hangup { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; width: 76px; height: 76px; border-radius: 50%; border: 0; background: #d4232a; color: #fff; font-weight: 800; font-size: 0.8rem; }
+.hangup svg { transform: rotate(135deg); }
 .voice-note { background: #fff8e6; color: #5c3b00; border-radius: 14px; padding: 10px 14px; font-size: 0.9rem; }
 /* One swipeable row of quick questions instead of several wrapped lines. */
 .pills { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -12px; padding: 0 12px; scroll-padding: 12px; }

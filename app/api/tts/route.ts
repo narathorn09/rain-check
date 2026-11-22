@@ -18,7 +18,8 @@ const MODELS = [
 const VOICE = process.env.GEMINI_TTS_VOICE ?? "Leda";
 const STYLE =
   process.env.GEMINI_TTS_STYLE ??
-  "Warm, friendly and caring, like a cheerful young relative chatting with an older family member. " +
+  "A sweet, soft young woman's voice with a gentle smile in it; warm, friendly and caring, " +
+    "like a cheerful young relative chatting with an older family member. " +
     "Natural conversational Thai with a gentle smile in the voice, relaxed pace, " +
     "clear pronunciation, soft polite endings. Not robotic, not like a news reader.";
 const FALLBACK_STATUSES = new Set([404, 429, 500, 503, 504]);
