@@ -30,6 +30,13 @@ function toneBytes(): Uint8Array {
   return bytes;
 }
 
+/** Describes a failed /api/tts call; Gemini's own status (429 = quota used up) matters most. */
+async function failure(res: Response): Promise<string> {
+  const body = (await res.json().catch(() => null)) as { upstream?: number | null } | null;
+  if (body?.upstream === 429) return "โควตาเสียงของ Gemini หมด (429)";
+  return `HTTP ${res.status}${body?.upstream ? ` · Gemini ${body.upstream}` : ""}`;
+}
+
 function errText(e: unknown): string {
   return e instanceof Error ? `${e.name}: ${e.message}` : String(e);
 }
@@ -84,7 +91,7 @@ export function SoundTest() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: SAMPLE_TEXT }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(await failure(res));
       const bytes = new Uint8Array(await res.arrayBuffer());
       if (bytes.length < 2) throw new Error("ได้ข้อมูลเสียงว่าง");
       setVoice(bytes);
@@ -150,7 +157,7 @@ export function SoundTest() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: SAMPLE_TEXT }),
         });
-        if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok || !res.body) throw new Error(await failure(res));
         note(`${letter}: เสียงแรกมาหลัง ${((performance.now() - started) / 1000).toFixed(1)} วิ`);
         await t.appendStream(res.body);
         t.whenDone(() => {

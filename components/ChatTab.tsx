@@ -8,7 +8,7 @@ import { MicIcon, PhoneIcon, SpeakerIcon } from "./Icons";
 import { Mascot } from "./Mascot";
 import { VoiceCall, type CallState } from "@/lib/client/live";
 import { primeAudio, resumeAudio } from "@/lib/client/pcmPlayer";
-import { speak as speakAloud, startSpeech, stopSpeaking, type SpeechSession } from "@/lib/client/speech";
+import { speak as speakAloud, stopSpeaking } from "@/lib/client/speech";
 
 interface Msg {
   role: "user" | "model";
@@ -147,17 +147,15 @@ export function ChatTab({ place, profile }: { place: Place; profile: Profile }) 
   async function ask(question: string) {
     const q = question.trim();
     if (!q || busy) return;
-    // Unlock audio now, while this still counts as the user's tap. The answer is read
-    // aloud after the network wait, when the browser would otherwise keep audio muted.
-    primeAudio();
+    // Answers are not read aloud on their own: speech is played only when the user taps
+    // "ฟังคำตอบ", which keeps the Gemini speech quota for answers someone wants to hear.
+    stopSpeaking();
     const next: Msg[] = [...msgs, { role: "user", text: q, at: Date.now() }];
     setMsgs(next);
     setText("");
     // Close the keyboard once the question is sent so the answer has the whole screen.
     inputRef.current?.blur();
     setBusy(true);
-    const index = next.length;
-    let session: SpeechSession | null = null;
     let answer = "";
     try {
       const res = await fetch("/api/chat", {
@@ -175,31 +173,13 @@ export function ChatTab({ place, profile }: { place: Place; profile: Profile }) 
         if (done) break;
         const delta = decoder.decode(value, { stream: true });
         if (!delta) continue;
-        if (!answer) {
-          // First words: show the bubble and start reading aloud right away.
-          setBusy(false);
-          speakingRef.current = index;
-          setSpeaking(index);
-          session = startSpeech(
-            () => {
-              if (speakingRef.current === index) {
-                speakingRef.current = null;
-                setSpeaking(null);
-              }
-              setMuted((m) => (m === index ? null : m));
-            },
-            () => setMuted(index),
-          );
-          session.result.then((r) => r === "no-thai-voice" && setNoThaiVoice(true));
-        }
+        // First words replace the typing indicator with the answer bubble.
+        if (!answer) setBusy(false);
         answer += delta;
-        session?.add(delta);
         setMsgs([...next, { role: "model", text: answer, at }]);
       }
       if (!answer.trim()) throw new Error();
-      session?.end();
     } catch {
-      session?.end();
       if (!answer.trim()) {
         setMsgs([
           ...next,
@@ -223,6 +203,8 @@ export function ChatTab({ place, profile }: { place: Place; profile: Profile }) 
       setSpeaking(null);
       return;
     }
+    // Unlock audio during the tap; the speech itself arrives after a network wait.
+    primeAudio();
     speakingRef.current = index;
     setSpeaking(index);
     const result = await speakAloud(
@@ -245,8 +227,6 @@ export function ChatTab({ place, profile }: { place: Place; profile: Profile }) 
       recRef.current?.stop();
       return;
     }
-    // The spoken question is sent later from a speech event, not a tap; unlock audio here.
-    primeAudio();
     const r = makeRecognition();
     if (!r) return;
     recRef.current = r;
