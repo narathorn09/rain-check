@@ -7,6 +7,8 @@ import { fetchForecast, validCoords } from "@/lib/weather";
 export const maxDuration = 30;
 
 const MODEL = process.env.GEMINI_MODEL ?? "gemini-3.8-flash";
+const REQUEST_TIMEOUT_MS = 10_000;
+const TOTAL_TIMEOUT_MS = 22_000;
 const MAX_TURNS = 10;
 const MAX_CHARS = 500;
 
@@ -66,17 +68,31 @@ export async function POST(req: NextRequest) {
 พยากรณ์รายชั่วโมงตั้งแต่ตอนนี้ (ระดับ: แล้ง = ไม่มีฝน, ฝนเบา, ฝนตกหนัก):
 ${forecastForPrompt(forecast, now)}`;
 
-    const ai = new GoogleGenAI({ apiKey });
+    // The SDK retries up to 5 times with backoff by default, which can outlast maxDuration.
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: { timeout: REQUEST_TIMEOUT_MS, retryOptions: { attempts: 2 } },
+    });
     const res = await ai.models.generateContent({
       model: MODEL,
       contents: turns,
-      config: { systemInstruction: system, temperature: 0.4, maxOutputTokens: 400 },
+      config: {
+        systemInstruction: system,
+        temperature: 0.4,
+        maxOutputTokens: 400,
+        // Hard cap below maxDuration so the user gets a clear error, not a platform 504.
+        abortSignal: AbortSignal.timeout(TOTAL_TIMEOUT_MS),
+      },
     });
     const text = res.text?.trim();
     if (!text) return NextResponse.json({ error: "empty answer" }, { status: 502 });
     return NextResponse.json({ text });
   } catch (err) {
     console.error("chat failed", err);
-    return NextResponse.json({ error: "assistant unavailable" }, { status: 502 });
+    const timedOut = err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+    return NextResponse.json(
+      { error: timedOut ? "assistant timed out" : "assistant unavailable" },
+      { status: timedOut ? 504 : 502 },
+    );
   }
 }
