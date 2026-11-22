@@ -6,14 +6,17 @@ import { fetchForecast, validCoords } from "@/lib/weather";
 
 export const maxDuration = 30;
 
-// Tried in order; the next model is used only when the previous one answers 503 (overloaded).
+// Tried in order, ending with a small, cheap model.
 const MODELS = [
   process.env.GEMINI_MODEL ?? "gemini-3.8-flash",
-  ...(process.env.GEMINI_FALLBACK_MODELS ?? "gemini-3.6-flash,gemini-flash-latest")
+  ...(process.env.GEMINI_FALLBACK_MODELS ?? "gemini-3.6-flash,gemini-3.5-flash-lite")
     .split(",")
     .map((m) => m.trim())
     .filter(Boolean),
 ].filter((m, i, all) => all.indexOf(m) === i);
+// The next model is tried only for model-side problems: not found, quota, server error or overload.
+// 400/401/403 mean our request or key is wrong, and another model would fail the same way.
+const FALLBACK_STATUSES = new Set([404, 429, 500, 503, 504]);
 const REQUEST_TIMEOUT_MS = 9_000;
 const TOTAL_TIMEOUT_MS = 25_000;
 const MAX_TURNS = 10;
@@ -82,14 +85,17 @@ ${forecastForPrompt(forecast, now)}`;
         res = await ai.models.generateContent({
           model,
           contents: turns,
-          config: { systemInstruction: system, temperature: 0.4, maxOutputTokens: 400, abortSignal },
+          // No temperature/top_p/top_k: Gemini 3.x deprecates them and newer models reject them.
+          // The limit is generous because thinking tokens count against it, and a too-small
+          // limit can leave the visible answer empty.
+          config: { systemInstruction: system, maxOutputTokens: 1024, abortSignal },
         });
         break;
       } catch (err) {
         lastError = err;
         const status = err instanceof ApiError ? err.status : undefined;
         console.warn(`chat: model ${model} failed`, status ?? err);
-        if (status !== 503) throw err;
+        if (status === undefined || !FALLBACK_STATUSES.has(status)) throw err;
       }
     }
     if (!res) throw lastError;
