@@ -203,6 +203,8 @@ button.list-row:active { background: var(--bg); }
 .btn.hit { width: 100%; text-align: left; display: flex; flex-direction: column; align-items: flex-start; border-radius: var(--radius); border-color: var(--line); color: var(--ink); }
 .btn.hit span { font-weight: 400; color: var(--muted); font-size: 0.9rem; }
 
+.btn.sound-test { display: flex; flex-direction: column; align-items: flex-start; text-align: left; border-radius: var(--radius); padding: 10px 16px; }
+.btn.sound-test.primary .row-sub { color: #e8f5ec; }
 .receipt { background: var(--dry-bg); color: var(--dry); border-radius: var(--radius); padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; font-weight: 700; }
 .receipt.bad { background: var(--heavy-bg); color: var(--heavy); }
 

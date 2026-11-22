@@ -13,7 +13,8 @@ import {
 } from "@/lib/client/push";
 import type { Settings } from "@/lib/client/settings";
 import { MorningTimeEditor, PlacePicker, ProfileEditor, SwitchRow } from "./controls";
-import { BackIcon, BellIcon, ChevronIcon, PinIcon, UmbrellaIcon } from "./Icons";
+import { BackIcon, BellIcon, ChevronIcon, PinIcon, SpeakerIcon, UmbrellaIcon } from "./Icons";
+import { SoundTest } from "./SoundTest";
 import { Mascot } from "./Mascot";
 
 type Perm = "granted" | "denied" | "default" | "unsupported";
@@ -30,6 +31,7 @@ export function SettingsView({
   const [perm, setPerm] = useState<Perm>("default");
   const [changing, setChanging] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
+  const [testingSound, setTestingSound] = useState(false);
   const [note, setNote] = useState("");
   const [swVersion, setSwVersion] = useState("");
   const [receipt, setReceipt] = useState<{ count: number; at: number; error?: string } | null>(null);
@@ -234,6 +236,27 @@ export function SettingsView({
           </div>
         )}
       </div>
+      <p className="section-label">เสียง</p>
+      <div className="list">
+        <button type="button" className="list-row" onClick={() => setTestingSound((v) => !v)} aria-expanded={testingSound}>
+          <span className="lead">
+            <SpeakerIcon />
+          </span>
+          <span className="row-main">
+            <span className="row-title" style={{ display: "block" }}>ทดสอบเสียง</span>
+            <span className="row-sub" style={{ display: "block" }}>ใช้หาว่าเสียงแตกเกิดจากตรงไหน</span>
+          </span>
+          <span className="trail">
+            {testingSound ? "ปิด" : "เปิด"} <ChevronIcon />
+          </span>
+        </button>
+        {testingSound && (
+          <div className="list-row block">
+            <SoundTest />
+          </div>
+        )}
+      </div>
+
       {note && (
         <p className="note" role="status">
           {note}
