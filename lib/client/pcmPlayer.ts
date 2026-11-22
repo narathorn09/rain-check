@@ -89,6 +89,15 @@ registerProcessor("pcm-stream", PcmStream);
 let ctx: AudioContext | null = null;
 let input: AudioNode | null = null;
 let moduleReady: Promise<void> | null = null;
+let boost: GainNode | null = null;
+
+/**
+ * Sets extra loudness (1 = normal). Calls need it: with the phone's echo cancellation off,
+ * Android plays the call through the quieter media path instead of its call path.
+ */
+export function setBoost(level: number): void {
+  if (boost && ctx) boost.gain.setTargetAtTime(level, ctx.currentTime, 0.05);
+}
 const live = new Set<PcmTimeline>();
 
 /**
@@ -116,7 +125,9 @@ export function primeAudio(): AudioContext | null {
     comp.release.value = 0.2;
     const gain = ctx.createGain();
     gain.gain.value = 0.85;
-    lowpass.connect(comp).connect(gain).connect(ctx.destination);
+    // Extra level ahead of the compressor, so the compressor (not hard clipping) catches peaks.
+    boost = ctx.createGain();
+    lowpass.connect(boost).connect(comp).connect(gain).connect(ctx.destination);
     input = lowpass;
     const url = URL.createObjectURL(new Blob([WORKLET], { type: "application/javascript" }));
     moduleReady = ctx.audioWorklet.addModule(url).finally(() => URL.revokeObjectURL(url));

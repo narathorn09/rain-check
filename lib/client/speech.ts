@@ -60,6 +60,8 @@ function requestSpeech(text: string): Promise<Response> {
 /** Feed it text as it arrives; it speaks each sentence as soon as the sentence is complete. */
 export interface SpeechSession {
   add(delta: string): void;
+  /** Requests a whole finished text as one clip (one speech request instead of one per sentence). */
+  addWhole(text: string): void;
   end(): void;
   /** Resolves when the session has decided how it spoke (or that it could not). */
   result: Promise<SpeakResult>;
@@ -87,6 +89,7 @@ export function startSpeech(onDone: () => void, onBlocked?: () => void): SpeechS
     let text = "";
     return {
       add: (d) => void (text += d),
+      addWhole: (d) => void (text += d),
       end: () => void speakThai(text, onDone).then(resolveResult),
       result,
     };
@@ -122,6 +125,11 @@ export function startSpeech(onDone: () => void, onBlocked?: () => void): SpeechS
       buffer = rest;
       ready.forEach(enqueue);
     },
+    addWhole(text) {
+      if (stale() || !text.trim()) return;
+      fullText += text;
+      enqueue(text.trim());
+    },
     end() {
       if (stale()) return resolveResult("ok");
       takeSentences(buffer, true).ready.forEach(enqueue);
@@ -145,7 +153,7 @@ export function startSpeech(onDone: () => void, onBlocked?: () => void): SpeechS
   };
 }
 
-/** Reads a finished text aloud: from the cache when possible, else sentence by sentence. */
+/** Reads a finished text aloud: from the cache when possible, else as one streamed clip. */
 export async function speak(text: string, onDone: () => void, onBlocked?: () => void): Promise<SpeakResult> {
   const cached = audioCache.get(text.trim());
   if (cached) {
@@ -161,7 +169,8 @@ export async function speak(text: string, onDone: () => void, onBlocked?: () => 
     }
   }
   const session = startSpeech(onDone, onBlocked);
-  session.add(text);
+  // The server streams the clip as it is made, so one request starts as fast as a sentence.
+  session.addWhole(text);
   session.end();
   return session.result;
 }

@@ -4,7 +4,7 @@ import { GoogleGenAI, Modality, type LiveServerMessage, type Session } from "@go
 import type { Profile } from "../profile";
 import type { Place } from "../types";
 import { CALL_MIC } from "./mic";
-import { PcmTimeline, STREAM_RATE, primeAudio, stopPcm } from "./pcmPlayer";
+import { PcmTimeline, STREAM_RATE, primeAudio, setBoost, stopPcm } from "./pcmPlayer";
 
 export type CallState = "connecting" | "listening" | "speaking" | "ended" | "error";
 
@@ -22,6 +22,10 @@ const SEND_SAMPLES = MIC_RATE / 10;
 // Keep the mic closed a moment after น้องฝน stops, so the tail of her voice is not heard back.
 // Longer than before because the phone's own echo cancellation is off (see CALL_MIC).
 const ECHO_TAIL_MS = 500;
+// Calls sounded much quieter once off the phone's call path. Rendering a recorded call
+// through the output chain: 2.5 gives about +3 dB loudness with peaks still under 0.95;
+// 3 pushed peaks to 0.99, too close to clipping (which would crackle).
+const CALL_BOOST = 2.5;
 
 // Captures mic frames off the main thread and hands them to the page.
 const WORKLET = `
@@ -93,6 +97,7 @@ export class VoiceCall {
     this.events.onState("connecting");
     // Before any await, so the browser counts it as part of the tap.
     primeAudio();
+    setBoost(CALL_BOOST);
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("no-mic");
       this.stream = await navigator.mediaDevices
@@ -171,6 +176,7 @@ export class VoiceCall {
     this.micCtx = null;
     stopPcm();
     this.timeline = null;
+    setBoost(1);
   }
 
   private async startMic() {

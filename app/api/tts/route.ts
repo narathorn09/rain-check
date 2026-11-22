@@ -1,5 +1,6 @@
 import { ApiError, GoogleGenAI, type GenerateContentResponse } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
+import { openLiveSpeech } from "@/lib/liveSpeech";
 import { isWav } from "@/lib/wav";
 
 export const maxDuration = 30;
@@ -30,6 +31,10 @@ const STYLE =
     "like a cheerful young relative chatting with an older family member. " +
     "Natural conversational Thai with a gentle smile in the voice, relaxed pace, " +
     "clear pronunciation, soft polite endings. Not robotic, not like a news reader.";
+// Same model and voice as the voice call (see /api/live-token). GEMINI_SPEECH_LIVE=off skips it.
+const USE_LIVE = process.env.GEMINI_SPEECH_LIVE !== "off";
+const LIVE_MODEL = process.env.GEMINI_LIVE_MODEL ?? "gemini-3.8-live";
+const LIVE_VOICE = process.env.GEMINI_LIVE_VOICE ?? process.env.GEMINI_TTS_VOICE ?? "Leda";
 const FALLBACK_STATUSES = new Set([404, 429, 500, 503, 504]);
 // Caps audio length and cost; chat answers are far shorter.
 const MAX_CHARS = 600;
@@ -42,6 +47,34 @@ function pcmOf(chunk: GenerateContentResponse): Uint8Array | null {
   const bytes = new Uint8Array(Buffer.from(part.inlineData.data, "base64"));
   // Strip a WAV header if one ever arrives, so the client only ever sees raw PCM.
   return isWav(bytes) ? bytes.subarray(44) : bytes;
+}
+
+interface AudioSource {
+  next(): Promise<Uint8Array | null>;
+  close(): void;
+}
+
+/** Wraps a TTS stream; resolves once its first audio has arrived (errors surface there). */
+async function ttsSource(iterator: AsyncIterator<GenerateContentResponse>): Promise<AudioSource> {
+  const next = async (): Promise<Uint8Array | null> => {
+    while (true) {
+      const r = await iterator.next();
+      if (r.done) return null;
+      const pcm = pcmOf(r.value);
+      if (pcm?.length) return pcm;
+    }
+  };
+  const first = await next();
+  if (!first) throw new Error("empty audio stream");
+  let pending: Uint8Array | null = first;
+  return {
+    next: async () => {
+      const p = pending;
+      pending = null;
+      return p ?? next();
+    },
+    close: () => void iterator.return?.(),
+  };
 }
 
 /**
@@ -69,12 +102,21 @@ export async function POST(req: NextRequest) {
   });
   const abortSignal = AbortSignal.timeout(28_000);
 
+  // Live first, so read-aloud sounds like the voice call; the TTS models are the fallback.
+  let source: AudioSource | null = null;
+  if (USE_LIVE) {
+    try {
+      source = await openLiveSpeech(ai, { model: LIVE_MODEL, voice: LIVE_VOICE, text });
+    } catch (err) {
+      console.warn("tts: live failed", err instanceof ApiError ? err.status : err);
+    }
+  }
+
   // Pick a model by waiting for its first chunk: errors surface there, before any bytes
   // are sent, so a failing model can still fall back to the next one.
-  let opened: { iterator: AsyncIterator<GenerateContentResponse>; first: GenerateContentResponse } | null = null;
   // Gemini's status for the last failure, returned so a phone can tell quota (429) from other errors.
   let upstream: number | undefined;
-  for (const model of MODELS) {
+  for (const model of source ? [] : MODELS) {
     try {
       const legacy = isLegacy(model);
       const stream = await ai.models.generateContentStream({
@@ -95,10 +137,7 @@ export async function POST(req: NextRequest) {
           abortSignal,
         },
       });
-      const iterator = stream[Symbol.asyncIterator]();
-      const first = await iterator.next();
-      if (first.done) throw new Error("empty audio stream");
-      opened = { iterator, first: first.value };
+      source = await ttsSource(stream[Symbol.asyncIterator]());
       break;
     } catch (err) {
       const status = err instanceof ApiError ? err.status : undefined;
@@ -111,34 +150,23 @@ export async function POST(req: NextRequest) {
       if (!FALLBACK_STATUSES.has(status) && !isLegacy(model)) break;
     }
   }
-  if (!opened) return NextResponse.json({ error: "speech unavailable", upstream: upstream ?? null }, { status: 502 });
+  if (!source) return NextResponse.json({ error: "speech unavailable", upstream: upstream ?? null }, { status: 502 });
 
-  const { iterator } = opened;
-  let pending: GenerateContentResponse | null = opened.first;
   const audio = new ReadableStream<Uint8Array>({
     async pull(controller) {
       try {
-        while (true) {
-          const chunk = pending ?? (await iterator.next().then((r) => (r.done ? null : r.value)));
-          pending = null;
-          if (!chunk) {
-            controller.close();
-            return;
-          }
-          const pcm = pcmOf(chunk);
-          if (pcm?.length) {
-            controller.enqueue(pcm);
-            return;
-          }
-        }
+        const pcm = await source.next();
+        if (pcm) controller.enqueue(pcm);
+        else controller.close();
       } catch (err) {
         // Mid-stream failure: end cleanly so the phone plays what it already has.
         console.error("tts stream failed", err);
+        source.close();
         controller.close();
       }
     },
     cancel() {
-      iterator.return?.();
+      source.close();
     },
   });
 
