@@ -134,7 +134,8 @@ export function startSpeech(onDone: () => void, onBlocked?: () => void): SpeechS
           return;
         }
         timeline.whenDone(() => {
-          if (!failed) remember(fullText.trim(), joinPcm(parts));
+          // A stopped reading also ends here; only a complete one is worth replaying.
+          if (!failed && !stale()) remember(fullText.trim(), joinPcm(parts));
           onDone();
         });
         resolveResult("ok");
