@@ -6,6 +6,7 @@ import { isRainy, levelOfSky, SKY_LABEL, skyOf, type Sky } from "@/lib/sky";
 import { addDays, bangkokNow, thaiHour } from "@/lib/time";
 import type { Forecast, Place } from "@/lib/types";
 import { PinIcon, SkyIcon } from "./Icons";
+import { Mascot, mascotFor } from "./Mascot";
 import { WeatherScene } from "./WeatherScene";
 
 // Night-time "clear" is left out: the legend explains daytime pictures.
@@ -40,7 +41,13 @@ export function RainTab({ place, here, nowTick }: { place: Place; here: boolean;
   if (error && !forecast) {
     return (
       <div className="hero">
-        <WeatherScene sky="cloudy" className="hero-scene" />
+        <div className="hero-art">
+          <WeatherScene sky="cloudy" className="hero-scene" />
+          <div className="hero-mascot">
+            <Mascot face="worried" size={88} />
+          </div>
+          <p className="say">ขอโทษค่ะ น้องฝนดูข้อมูลไม่ได้</p>
+        </div>
         <div className="hero-body">
           <p className="big">ดูข้อมูลฝนไม่ได้ในตอนนี้</p>
           <p className="note">ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่นะคะ</p>
@@ -54,8 +61,9 @@ export function RainTab({ place, here, nowTick }: { place: Place; here: boolean;
   if (!forecast) {
     return (
       <div className="hero">
-        <div className="hero-body">
-          <p className="big">กำลังดูข้อมูลฝน…</p>
+        <div className="mascot-banner">
+          <Mascot face="think" size={64} />
+          <p className="big">น้องฝนกำลังดูข้อมูลฝนให้ค่ะ…</p>
         </div>
       </div>
     );
@@ -87,6 +95,7 @@ export function RainTab({ place, here, nowTick }: { place: Place; here: boolean;
         ? "cloudy"
         : reported;
   const temp = forecast.current ? `${Math.round(forecast.current.temp)}°` : "";
+  const buddy = mascotFor(heroSky);
 
   const nowLine =
     m === null
@@ -102,7 +111,13 @@ export function RainTab({ place, here, nowTick }: { place: Place; here: boolean;
   return (
     <div className="stack">
       <section className="hero" aria-live="polite">
-        <WeatherScene sky={heroSky} className="hero-scene" />
+        <div className="hero-art">
+          <WeatherScene sky={heroSky} className="hero-scene" />
+          <div className="hero-mascot">
+            <Mascot face={buddy.face} prop={buddy.prop} size={88} />
+          </div>
+          <p className="say">{buddy.line}</p>
+        </div>
         <div className="hero-body">
           <p className="hero-place">
             <PinIcon />

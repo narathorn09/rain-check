@@ -5,6 +5,7 @@ import { enablePush, pushSupported, syncDevice } from "@/lib/client/push";
 import type { Settings } from "@/lib/client/settings";
 import type { Sky } from "@/lib/sky";
 import { PlacePicker } from "./controls";
+import { Mascot, type Face, type Prop } from "./Mascot";
 import { WeatherScene } from "./WeatherScene";
 
 interface InstallEvent extends Event {
@@ -12,6 +13,13 @@ interface InstallEvent extends Event {
 }
 
 const SCENES: Sky[] = ["sunny", "rain", "storm"];
+
+// น้องฝน introduces each setup step.
+const GUIDE: { face: Face; prop: Prop; line: string }[] = [
+  { face: "happy", prop: "wave", line: "สวัสดีค่ะ หนูชื่อน้องฝน จะช่วยดูฝนให้นะคะ" },
+  { face: "happy", prop: "umbrella", line: "ให้หนูเตือนก่อนฝนตกนะคะ" },
+  { face: "happy", prop: "wave", line: "วางหนูไว้หน้าจอหลัก จะได้เปิดง่ายๆ ค่ะ" },
+];
 
 /** One-time setup, meant to be done by a family member on the user's phone. */
 export function Wizard({ settings, update }: { settings: Settings; update: (p: Partial<Settings>) => void }) {
@@ -52,8 +60,12 @@ export function Wizard({ settings, update }: { settings: Settings; update: (p: P
           <span key={i} className={`dot ${i + 1 === step ? "on" : ""}`} />
         ))}
       </div>
-      <div className="onboard-art">
+      <div className="onboard-art hero-art">
         <WeatherScene sky={SCENES[step - 1]} />
+        <div className="hero-mascot">
+          <Mascot face={GUIDE[step - 1].face} prop={GUIDE[step - 1].prop} size={88} />
+        </div>
+        <p className="say">{GUIDE[step - 1].line}</p>
       </div>
 
       {step === 1 && (

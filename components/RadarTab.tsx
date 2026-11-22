@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Map as LMap, TileLayer } from "leaflet";
 import type { Place } from "@/lib/types";
 import { PauseIcon, PlayIcon } from "./Icons";
+import { Mascot } from "./Mascot";
 
 interface Frame {
   time: number;
@@ -100,6 +101,7 @@ export function RadarTab({ place }: { place: Place }) {
     return (
       <div className="list">
         <div className="list-row block">
+          <Mascot face="worried" size={64} />
           <p className="big">เปิดแผนที่เรดาร์ไม่ได้ในตอนนี้</p>
           <p className="note">ลองใหม่อีกครั้งภายหลังนะคะ</p>
         </div>
@@ -126,9 +128,12 @@ export function RadarTab({ place }: { place: Place }) {
             {frame && <p className="row-sub">ผ่านมา {agoMin} นาที</p>}
           </div>
         </div>
-        <div className="list-row block">
-          <p className="row-title">วิธีดู</p>
-          <p className="row-sub">เมฆฝนย้อนหลัง 1-2 ชั่วโมง สีน้ำเงิน-เขียว-เหลือง-แดง คือฝนเบาไปหนัก จุดแดงคือที่ของคุณ</p>
+        <div className="list-row">
+          <Mascot face="think" size={56} />
+          <div className="row-main">
+            <p className="row-title">น้องฝนบอกวิธีดู</p>
+            <p className="row-sub">เมฆฝนย้อนหลัง 1-2 ชั่วโมง สีน้ำเงิน-เขียว-เหลือง-แดง คือฝนเบาไปหนัก จุดแดงคือที่ของคุณค่ะ</p>
+          </div>
         </div>
       </div>
     </div>

@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   title: "เช็คฝน",
   description: "ดูว่าฝนจะตกตอนไหน ดูง่าย เข้าใจง่าย",
   applicationName: "เช็คฝน",
+  icons: { icon: "/icon-192", apple: "/icon-192" },
   appleWebApp: { capable: true, title: "เช็คฝน", statusBarStyle: "default" },
 };
 

@@ -86,7 +86,7 @@ export async function localTestNotification(): Promise<LocalTestResult> {
     await reg.showNotification("เช็คฝน (ทดสอบบนเครื่องนี้)", {
       body: "ถ้าเห็นข้อความนี้ แปลว่ามือถือแสดงแจ้งเตือนได้ปกติค่ะ",
       icon: "/icon-192",
-      badge: "/icon-192",
+      badge: "/badge-96",
       tag: "local-test",
     });
     return "ok";

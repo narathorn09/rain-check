@@ -14,7 +14,7 @@ self.addEventListener("push", (event) => {
       body: data.body || "",
       tag: data.tag || "rain",
       icon: "/icon-192",
-      badge: "/icon-192",
+      badge: "/badge-96",
       data: { url: data.url || "/" },
       vibrate: [200, 100, 200],
     }),

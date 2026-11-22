@@ -6,6 +6,7 @@ import { registerWorker, syncDevice } from "@/lib/client/push";
 import { useSettings } from "@/lib/client/settings";
 import type { Place } from "@/lib/types";
 import { Avatar } from "./Avatar";
+import { Mascot } from "./Mascot";
 import { ChatTab } from "./ChatTab";
 import { ChatIcon, GearIcon, MapIcon, PinIcon, UmbrellaIcon } from "./Icons";
 import { RadarTab } from "./RadarTab";
@@ -77,7 +78,16 @@ export function App() {
     return useGps && gps ? gps : settings.place;
   }, [settings?.place, gps, useGps]);
 
-  if (!settings) return <main className="shell"><p className="big center">กำลังเปิดเช็คฝน…</p></main>;
+  if (!settings) {
+    return (
+      <main className="shell">
+        <div className="splash">
+          <Mascot face="happy" prop="wave" size={120} />
+          <p className="big">กำลังเปิดเช็คฝน…</p>
+        </div>
+      </main>
+    );
+  }
 
   if (!settings.setupDone || !place) {
     return (

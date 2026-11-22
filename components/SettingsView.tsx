@@ -13,6 +13,7 @@ import {
 import type { Settings } from "@/lib/client/settings";
 import { MorningTimeEditor, PlacePicker, SwitchRow } from "./controls";
 import { BackIcon, BellIcon, ChevronIcon, PinIcon, UmbrellaIcon } from "./Icons";
+import { Mascot } from "./Mascot";
 
 type Perm = "granted" | "denied" | "default" | "unsupported";
 
@@ -80,6 +81,13 @@ export function SettingsView({
           <h1>ตั้งค่า</h1>
         </div>
       </header>
+
+      <div className="list">
+        <div className="mascot-banner">
+          <Mascot face="happy" prop="wave" size={64} />
+          <p>ตั้งค่าตรงนี้ แล้วน้องฝนจะคอยเตือนเรื่องฝนให้นะคะ</p>
+        </div>
+      </div>
 
       <p className="section-label">สถานที่</p>
       <div className="list">
