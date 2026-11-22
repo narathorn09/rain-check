@@ -1,5 +1,7 @@
 "use client";
 
+import { Declicker } from "../declick";
+
 // Plays streamed 16-bit mono PCM through one continuous AudioWorklet stream.
 //
 // An earlier version scheduled every chunk as its own AudioBufferSourceNode. Rendering that
@@ -209,8 +211,13 @@ export class PcmTimeline {
     this.node?.port.postMessage({ type: "push", samples }, [samples.buffer]);
   }
 
-  private push(samples: Float32Array<ArrayBuffer>) {
-    if (this.closed || this.isStale() || samples.length === 0) return;
+  // Gemini Live audio carries occasional one-sample spikes; strip them before playback.
+  private readonly declicker = new Declicker();
+
+  private push(raw: Float32Array<ArrayBuffer>, flush = false) {
+    if (this.closed || this.isStale()) return;
+    const samples = this.declicker.process(raw, flush).out;
+    if (samples.length === 0) return;
     if (this.pushed === 0) {
       // Try to resume (allowed if the user has tapped recently), then check it worked.
       resumeAudio();
@@ -276,6 +283,8 @@ export class PcmTimeline {
 
   /** Calls `onEnd` once everything appended so far has finished playing. */
   whenDone(onEnd: () => void) {
+    // Release the few milliseconds the de-clicker holds back for look-ahead.
+    this.push(new Float32Array(0), true);
     if (this.closed || this.pushed === 0) {
       onEnd();
       return;
